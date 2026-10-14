@@ -35,6 +35,22 @@ describe("changeCase", () => {
     expect(changeCase("uno\rdos\vtres", "upper")).toBe("UNO\rDOS\vTRES");
     expect(changeCase("uno. dos\rtres", "sentence")).toBe("Uno. Dos\rTres");
   });
+  it("sentence case only ends a sentence when a terminator is followed by whitespace (quotes/brackets may sit between)", () => {
+    expect(changeCase("versión 2.5 del plan", "sentence")).toBe("Versión 2.5 del plan");
+    expect(changeCase("3 puntos. ok", "sentence")).toBe("3 puntos. Ok");
+    expect(changeCase('dijo "hola." luego', "sentence")).toBe('Dijo "hola." Luego');
+    expect(changeCase("espera... vale", "sentence")).toBe("Espera... Vale");
+    expect(changeCase("¿qué tal? ¡bien!", "sentence")).toBe("¿Qué tal? ¡Bien!");
+  });
+  it("sentence case carries capitalization state across soft breaks (\\v) but resets on hard breaks (\\r, \\n)", () => {
+    expect(changeCase("uno\vdos. tres", "sentence")).toBe("Uno\vdos. Tres");
+  });
+  it("title case capitalizes after apostrophes only at word start, and after hyphens/quotes/brackets", () => {
+    expect(changeCase("the cat's hat", "title")).toBe("The Cat's Hat");
+    expect(changeCase("e-mail", "title")).toBe("E-Mail");
+    expect(changeCase("«cita»", "title")).toBe("«Cita»");
+    expect(changeCase("(nota)", "title")).toBe("(Nota)");
+  });
 });
 
 describe("cleanText", () => {
@@ -43,6 +59,11 @@ describe("cleanText", () => {
   });
   it("returns the same text when already clean", () => {
     expect(cleanText("hola\rmundo")).toBe("hola\rmundo");
+  });
+  it("keeps tabs and non-breaking spaces untouched, only collapses runs of ordinary spaces", () => {
+    expect(cleanText("a\tb")).toBe("a\tb");
+    expect(cleanText("10 %")).toBe("10 %");
+    expect(cleanText("a\v\vb")).toBe("a\vb");
   });
 });
 
@@ -54,10 +75,19 @@ describe("patch generators", () => {
     expect(fontSizePatches([ts("a"), ts("b", { fontSize: null }), ts("c", { fontSize: 1 })], -1)).toEqual([{ id: "a", fontSize: 11 }]);
     expect(fontSizePatches([ts("a", { fontSize: 400 })], 1)).toEqual([]);
   });
+  it("fontSizePatches rejects a no-op or non-finite delta and rounds to 0.1", () => {
+    expect(fontSizePatches([ts("a")], 0)).toEqual([]);
+    expect(fontSizePatches([ts("a")], NaN)).toEqual([]);
+    expect(fontSizePatches([ts("a", { fontSize: 10.5 })], 1)).toEqual([{ id: "a", fontSize: 11.5 }]);
+    expect(fontSizePatches([ts("a", { fontSize: 399.5 })], 1)).toEqual([{ id: "a", fontSize: 400 }]);
+  });
   it("paragraph and vertical alignment skip shapes already aligned", () => {
     expect(paragraphAlignPatches([ts("a"), ts("b", { horizontalAlignment: "Center" })], "Center")).toEqual([{ id: "a", horizontalAlignment: "Center" }]);
     expect(verticalAlignPatches([ts("a")], "Middle")).toEqual([{ id: "a", verticalAlignment: "Middle" }]);
     expect(verticalAlignPatches([ts("a")], "Top")).toEqual([]);
+  });
+  it("paragraphAlignPatches treats a mixed (null) alignment as needing a patch", () => {
+    expect(paragraphAlignPatches([ts("a", { horizontalAlignment: null })], "Center")).toEqual([{ id: "a", horizontalAlignment: "Center" }]);
   });
   it("marginPatches applies zero or standard presets", () => {
     expect(marginPatches([ts("a")], "zero")).toEqual([{ id: "a", margins: ZERO_MARGINS }]);

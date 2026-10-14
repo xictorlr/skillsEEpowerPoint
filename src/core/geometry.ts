@@ -176,7 +176,7 @@ const ROW_TOLERANCE_PT = 2;
  * Calcula el orden de lectura de una selección: agrupa las formas en filas (dentro de
  * `ROW_TOLERANCE_PT` del `top` de la primera forma de la fila) y, dentro de cada fila, ordena por `left`.
  */
-function readingOrder(shapes: ShapeModel[]): ShapeModel[] {
+export function readingOrder(shapes: ShapeModel[]): ShapeModel[] {
   const byTop = [...shapes].sort((a, b) => a.top - b.top);
   const rows: ShapeModel[][] = [];
   let currentRow: ShapeModel[] = [];

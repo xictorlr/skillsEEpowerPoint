@@ -125,15 +125,17 @@ export function boundingBox(shapes: ShapeModel[]): Rect | null {
 
 /**
  * Factor de escala para un eje al llevar la caja envolvente de `bboxSize` a `targetSize`.
- * Devuelve `null` si el cambio no es válido: tamaño destino no finito o negativo, o un tamaño
- * destino positivo sobre un eje degenerado (bboxSize === 0, p. ej. una línea vertical u
- * horizontal) al que no se le puede aplicar un factor de escala finito. Un eje degenerado con
- * destino también 0 es válido: se trata como traslación pura en ese eje (factor 1).
+ * Devuelve `null` si el cambio no es válido: tamaño destino no finito, negativo o cero sobre un
+ * eje real (bboxSize > 0) -- un destino de tamaño 0 ahí colapsaría la selección, no es una
+ * operación razonable de "ajustar a caja" -- o un tamaño destino positivo sobre un eje degenerado
+ * (bboxSize === 0, p. ej. una línea vertical u horizontal) al que no se le puede aplicar un factor
+ * de escala finito. Un eje degenerado con destino también 0 es válido: se trata como traslación
+ * pura en ese eje (factor 1).
  */
 function axisScale(bboxSize: number, targetSize: number): number | null {
   if (!Number.isFinite(targetSize) || targetSize < 0) return null;
   if (bboxSize === 0) return targetSize === 0 ? 1 : null;
-  return targetSize / bboxSize;
+  return targetSize > 0 ? targetSize / bboxSize : null;
 }
 
 /**
@@ -145,8 +147,9 @@ function axisScale(bboxSize: number, targetSize: number): number | null {
  * envolvente actual. Un eje degenerado (ancho o alto de la caja envolvente igual a 0, p. ej. una
  * única línea vertical u horizontal) solo admite traslación: un destino de tamaño 0 en ese eje es
  * válido, uno positivo no (no hay un factor de escala finito que lleve 0 a un valor positivo).
- * Devuelve [] si `target` tiene valores no finitos, tamaños negativos, un tamaño positivo sobre un
- * eje degenerado, o si la selección está vacía.
+ * Devuelve [] si `target` tiene valores no finitos, tamaños negativos, un tamaño cero sobre un eje
+ * real (colapsaría la selección), un tamaño positivo sobre un eje degenerado, o si la selección
+ * está vacía.
  */
 export function applyBoundingBox(shapes: ShapeModel[], target: Rect): Patch[] {
   const bbox = boundingBox(shapes);

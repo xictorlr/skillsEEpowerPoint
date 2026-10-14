@@ -128,9 +128,10 @@ describe("boundingBox / applyBoundingBox", () => {
       { id: "a", width: 200 }, { id: "b", left: 110, width: 200 },
     ]);
   });
-  it("ignores non-finite or negative targets", () => {
+  it("ignores non-finite, negative or zero targets on real axes", () => {
     expect(applyBoundingBox([a], { left: NaN, top: 10, width: 0, height: 50 })).toEqual([]);
     expect(applyBoundingBox([a], { left: 10, top: 10, width: -5, height: 50 })).toEqual([]);
+    expect(applyBoundingBox([a, b], { left: 10, top: 10, width: 0, height: 80 })).toEqual([]);
   });
   it("scales a single shape in place", () => {
     expect(applyBoundingBox([a], { left: 10, top: 10, width: 200, height: 100 })).toEqual([

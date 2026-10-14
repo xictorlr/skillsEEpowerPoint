@@ -1,17 +1,13 @@
-import type { CommandOptions } from "../commands/types";
 import {
   DEFAULT_PERSISTED,
   sanitizeMatrix,
   sanitizeSlideSizePreset,
-  toCommandOptions,
   type PersistedOptions,
 } from "./sanitize";
 
 export type { PersistedOptions };
 
 const KEY = "slide-tools.options";
-
-export const DEFAULT_OPTIONS: CommandOptions = toCommandOptions(DEFAULT_PERSISTED);
 
 /** Lee y sanea las opciones persistidas (forma cruda, para alimentar los controles del panel). */
 export function loadPersistedOptions(): PersistedOptions {
@@ -27,11 +23,6 @@ export function loadPersistedOptions(): PersistedOptions {
   } catch {
     return DEFAULT_PERSISTED;
   }
-}
-
-/** Lee las opciones persistidas ya resueltas a CommandOptions (ver `toCommandOptions`). */
-export function loadOptions(): CommandOptions {
-  return toCommandOptions(loadPersistedOptions());
 }
 
 export function saveOptions(persisted: PersistedOptions): void {

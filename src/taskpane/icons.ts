@@ -1,4 +1,4 @@
-/** Iconos SVG 16x16 con trazo currentColor. Las barras rojas marcan la referencia, como en EE. */
+/** Iconos SVG 16x16 con trazo currentColor. Las barras rojas marcan la referencia. */
 const S =
   'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" aria-hidden="true" focusable="false"';
 const REF = 'stroke="#d33"';

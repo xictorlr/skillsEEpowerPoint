@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 26, TypeScript 5, Vite 8, Vitest 5, `@types/office-js`, `office-addin-manifest`, `office-addin-dev-certs`, GitHub Actions + GitHub Pages.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-ee-powerpoint-addin-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-14-slide-tools-design.md`
 
 **Nombre del producto:** "Slide Tools" (proveedor: Victor Lopez). URL de producción: `https://xictorlr.github.io/skillsEEpowerPoint/`.
 
@@ -1611,7 +1611,7 @@ git commit -m "feat(commands): registro declarativo de Alignment y Size y ejecut
 - [ ] **Step 1: Crear `src/taskpane/icons.ts`**
 
 ```ts
-/** Iconos SVG 16x16 con trazo currentColor. Las barras rojas marcan la referencia, como en EE. */
+/** Iconos SVG 16x16 con trazo currentColor. Las barras rojas marcan la referencia. */
 const S = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"';
 const REF = 'stroke="#d33"';
 

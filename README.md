@@ -35,9 +35,17 @@ estirar hasta el borde izquierdo / derecho / superior / inferior de la referenci
 La **referencia** es siempre la primera forma que seleccionaste. Cada comando es un único paso de deshacer.
 
 El panel también incluye una sección **Ajustes** con las columnas y el espaciado (gap) de la matriz y un
-selector de **Diapositiva**. En modo Auto se detecta el tamaño real de la diapositiva activa; si tu mazo usa
-un tamaño no estándar, como el 16:9 clásico de 720×405, conviene elegirlo explícitamente para que "centrar en
-la diapositiva" quede exacto.
+selector de **Diapositiva**. En modo Auto se detecta la proporción de la diapositiva activa y se asume el alto estándar de 540 pt;
+si tu presentación usa un alto distinto, como el 16:9 clásico de 720×405, elígelo explícitamente para que
+"centrar en la diapositiva" quede exacto.
+
+## Limitaciones conocidas
+
+- Office.js no expone el tamaño de la diapositiva: en Auto se deduce de la proporción asumiendo 540 pt de alto,
+  y el valor se guarda mientras el panel esté abierto. Si cambias Diseño > Tamaño de diapositiva, elige el
+  tamaño en Ajustes o vuelve a abrir el panel.
+- Las formas rotadas se alinean por su marco sin rotar (igual que expone el API), no por su caja visual.
+- Los comandos actúan sobre las formas devueltas por la selección; dentro de un grupo se trata el grupo como una forma.
 
 ## Desarrollo
 
@@ -51,6 +59,9 @@ npm test               # Vitest
 npm run typecheck      # TypeScript sin emitir
 npm run build          # dist/
 ```
+
+Despliegue: GitHub Actions publica `dist/` en GitHub Pages en cada push a `main`. La primera vez hay que
+poner Settings > Pages > Source = "GitHub Actions" en el repositorio.
 
 `npm run sideload:mac` ya genera el manifest de desarrollo (ejecuta `manifest:dev` internamente) antes de
 copiarlo a PowerPoint, así que no hace falta llamarlo aparte en ese flujo.

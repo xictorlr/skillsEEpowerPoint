@@ -1,16 +1,26 @@
 import { alignmentCommands } from "./alignment";
 import { colorCommands } from "./color";
+import { expertCommands } from "./expert";
 import { formatCommands } from "./format";
+import { navigationCommands } from "./navigation";
 import { sizeCommands } from "./size";
 import { textCommands } from "./text";
 import type { Command, SectionId } from "./types";
 
-export const SECTION_ORDER: readonly SectionId[] = ["alignment", "size", "format", "color", "text"];
+export const SECTION_ORDER: readonly SectionId[] = ["alignment", "size", "format", "color", "text", "navigation", "expert"];
 
-export const commands: readonly Command[] = [...alignmentCommands, ...sizeCommands, ...formatCommands, ...colorCommands, ...textCommands];
+export const commands: readonly Command[] = [
+  ...alignmentCommands,
+  ...sizeCommands,
+  ...formatCommands,
+  ...colorCommands,
+  ...textCommands,
+  ...navigationCommands,
+  ...expertCommands,
+];
 
 /** Comandos que el panel no renderiza como botón (se disparan desde otros controles). */
-export const hiddenCommandIds: ReadonlySet<string> = new Set(["set-color"]);
+export const hiddenCommandIds: ReadonlySet<string> = new Set(["set-color", "select-kind", "inspector-apply"]);
 
 export function commandsBySection(section: SectionId): Command[] {
   return commands.filter((c) => c.section === section && !hiddenCommandIds.has(c.id));

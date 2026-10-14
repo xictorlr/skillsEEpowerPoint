@@ -122,5 +122,9 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     colorTarget: persisted.colorTarget,
     pasteParts: persisted.pasteParts,
     fontSizeStep: persisted.fontSizeStep,
+    nameFilter: "",
+    // TODO Task 4: persistir renamePrefix
+    renamePrefix: "Forma",
+    shapeKind: "all",
   };
 }

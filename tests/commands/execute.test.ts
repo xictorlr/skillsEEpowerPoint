@@ -10,6 +10,9 @@ const DEFAULT_OPTIONS: CommandOptions = {
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
   fontSizeStep: 1,
+  nameFilter: "",
+  renamePrefix: "Forma",
+  shapeKind: "all",
 };
 
 function stubPowerPoint(ctx: MockContext): void {

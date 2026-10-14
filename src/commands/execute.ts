@@ -27,8 +27,8 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
       slideSizeOverride: options.slideSize,
       withFormat,
       withText,
-      // Los comandos de formato/texto no leen selection.slide: evita pagar su sync.
-      withSlideSize: !withFormat && !withText,
+      // Solo los comandos de geometría leen selection.slide: evita pagar ese sync en el resto.
+      withSlideSize: cmd.kind === "geometry",
     });
     const reason = disabledReason(cmd, selection.shapes.length, getClipboard() !== null);
     if (reason) throw new Error(reason);
@@ -69,6 +69,8 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
         await context.sync();
         return { changed: new Set(patches.map((p) => p.id)).size };
       }
+      case "action":
+        return cmd.run({ context, selection, proxies, options });
     }
   });
 }

@@ -65,6 +65,21 @@ export const icons: Record<string, string> = {
   wrapOn: `<svg ${S}><rect x="1" y="2" width="14" height="12"/><path d="M4 6h8M4 8h5M9 8l-1.5-1.5M9 8l-1.5 1.5M4 10h8" ${REF}/></svg>`,
   wrapOff: `<svg ${S}><rect x="1" y="2" width="14" height="12"/><path d="M4 6h5M4 8h8M4 10h5" ${REF}/></svg>`,
   cleanText: `<svg ${S}><path d="M3 4h10M3 8h7M3 12h5"/><path d="M12 11l2 2M14 11l-2 2" ${REF}/></svg>`,
+  slideFirst: `<svg ${S}><line x1="2" y1="2" x2="2" y2="14" ${REF}/><path d="M13 2 6 8l7 6z"/></svg>`,
+  slidePrev: `<svg ${S}><path d="M11 2 4 8l7 6z"/></svg>`,
+  slideNext: `<svg ${S}><path d="M5 2l7 6-7 6z"/></svg>`,
+  slideLast: `<svg ${S}><line x1="14" y1="2" x2="14" y2="14" ${REF}/><path d="M3 2l7 6-7 6z"/></svg>`,
+  slideGoto: `<svg ${S}><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M6 8h5M9 5.5 11.5 8 9 10.5" ${REF}/></svg>`,
+  selectKind: `<svg ${S}><rect x="2" y="2" width="6" height="6" stroke-dasharray="1.5 1.5"/>${box(9, 9, 5, 5)}</svg>`,
+  selectByName: `<svg ${S}><rect x="2" y="3" width="12" height="4" stroke-dasharray="1.5 1.5"/><path d="M6 11h7M6 13.5h4" ${REF}/></svg>`,
+  renameNumbered: `<svg ${S}>${box(5, 2, 9, 4)}${box(5, 10, 9, 4)}<text x="1" y="6.5" font-size="5" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">1</text><text x="1" y="14.5" font-size="5" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">2</text></svg>`,
+  zFront: `<svg ${S}><rect x="2" y="2" width="8" height="8" stroke-dasharray="1.5 1.5"/>${box(6, 6, 8, 8)}</svg>`,
+  zForward: `<svg ${S}><rect x="2" y="2" width="8" height="8" stroke-dasharray="1.5 1.5"/>${box(6, 6, 8, 8)}<path d="M11 1.5v3M9.5 3h3" ${REF}/></svg>`,
+  zBackward: `<svg ${S}>${box(2, 2, 8, 8)}<rect x="6" y="6" width="8" height="8" stroke-dasharray="1.5 1.5"/><path d="M5 14.5v-3M3.5 13h3" ${REF}/></svg>`,
+  zBack: `<svg ${S}>${box(2, 2, 8, 8)}<rect x="6" y="6" width="8" height="8" stroke-dasharray="1.5 1.5"/></svg>`,
+  group: `<svg ${S}><rect x="1.5" y="1.5" width="13" height="13" stroke-dasharray="1.5 1.5"/>${box(3.5, 3.5, 5, 5)}${box(8.5, 8.5, 4, 4)}</svg>`,
+  ungroup: `<svg ${S}><rect x="1.5" y="1.5" width="5.5" height="5.5" stroke-dasharray="1.5 1.5"/><rect x="9" y="9" width="5.5" height="5.5" stroke-dasharray="1.5 1.5"/>${box(2.5, 2.5, 3.5, 3.5)}${box(10, 10, 3.5, 3.5)}</svg>`,
+  inspector: `<svg ${S}><rect x="2" y="2" width="12" height="12" stroke-dasharray="1.5 1.5" ${REF}/>${box(5, 5, 6, 6)}</svg>`,
 };
 
 export function iconSvg(id: string): string {

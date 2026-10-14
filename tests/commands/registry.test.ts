@@ -8,6 +8,9 @@ const OPTS: CommandOptions = {
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
   fontSizeStep: 1,
+  nameFilter: "",
+  renamePrefix: "Forma",
+  shapeKind: "all",
 };
 
 describe("registry", () => {
@@ -35,10 +38,29 @@ describe("registry", () => {
   });
 
   it("includes format and color sections and hides set-color from buttons", () => {
-    expect(SECTION_ORDER).toEqual(["alignment", "size", "format", "color", "text"]);
+    expect(SECTION_ORDER).toEqual(["alignment", "size", "format", "color", "text", "navigation", "expert"]);
     expect(commandsBySection("format").map((c) => c.id)).toEqual(["copy-format", "paste-format", "paste-fill", "paste-line", "paste-font", "paste-size"]);
     expect(commandsBySection("color").map((c) => c.id)).toEqual(["no-fill", "no-line", "transparency-up", "transparency-down"]);
     expect(findCommand("set-color")).toBeDefined();
+  });
+
+  it("hides select-kind and inspector-apply from buttons but keeps the rest of expert visible", () => {
+    expect(commandsBySection("expert").map((c) => c.id)).toEqual([
+      "select-by-name",
+      "rename-numbered",
+      "z-front",
+      "z-forward",
+      "z-backward",
+      "z-back",
+      "group",
+      "ungroup",
+    ]);
+    expect(findCommand("select-kind")).toBeDefined();
+    expect(findCommand("inspector-apply")).toBeDefined();
+  });
+
+  it("includes navigation commands", () => {
+    expect(commandsBySection("navigation").map((c) => c.id)).toEqual(["slide-first", "slide-prev", "slide-next", "slide-last", "slide-goto"]);
   });
 
   it("disables paste commands without a clipboard", () => {

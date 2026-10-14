@@ -1,9 +1,11 @@
 import type { MatrixOptions } from "../core/geometry";
 import type { ColorTarget, FormatParts, FormatPatch, ShapeFormat } from "../core/format";
-import type { Patch, SelectionContext, SlideSize } from "../core/types";
+import type { ShapeKind } from "../core/expert";
+import type { Patch, Rect, SelectionContext, SlideSize } from "../core/types";
 import type { TextPatch, TextShape } from "../core/text";
+import type { CommandOutcome } from "../office/runtime";
 
-export type SectionId = "alignment" | "size" | "format" | "color" | "text";
+export type SectionId = "alignment" | "size" | "format" | "color" | "text" | "navigation" | "expert";
 
 export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   alignment: "Alignment",
@@ -11,6 +13,8 @@ export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   format: "Format",
   color: "Color",
   text: "Text",
+  navigation: "Navigation",
+  expert: "Expert",
 };
 
 export interface CommandOptions {
@@ -25,6 +29,23 @@ export interface CommandOptions {
   pasteParts: FormatParts;
   /** Puntos que suman/restan "Aumentar"/"Reducir tamaño de fuente". */
   fontSizeStep: number;
+  /** Diapositiva destino (1-based) para "Ir a diapositiva". */
+  gotoSlide?: number;
+  /** Subcadena del nombre para "Seleccionar por nombre". */
+  nameFilter: string;
+  /** Prefijo para "Renombrar numerado". */
+  renamePrefix: string;
+  /** Caja destino (parcial) para el inspector; los campos ausentes no se tocan. */
+  inspector?: Partial<Rect>;
+  /** Categoría para "Seleccionar por tipo". */
+  shapeKind: ShapeKind;
+}
+
+export interface ActionContext {
+  context: PowerPoint.RequestContext;
+  selection: SelectionContext;
+  proxies: Map<string, PowerPoint.Shape>;
+  options: CommandOptions;
 }
 
 interface BaseCommand {
@@ -62,4 +83,9 @@ export interface TextCommand extends BaseCommand {
 /** Firma de `TextCommand.compute`; evita el tipo condicional al tipar el helper en `text.ts`. */
 export type TextCompute = TextCommand["compute"];
 
-export type Command = GeometryCommand | FormatCommand | CopyFormatCommand | TextCommand;
+export interface ActionCommand extends BaseCommand {
+  kind: "action";
+  run: (ctx: ActionContext) => Promise<CommandOutcome>;
+}
+
+export type Command = GeometryCommand | FormatCommand | CopyFormatCommand | TextCommand | ActionCommand;

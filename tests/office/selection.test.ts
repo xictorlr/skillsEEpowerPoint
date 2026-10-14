@@ -172,7 +172,8 @@ describe("readSelection", () => {
     const { texts } = await readSelection(ctx as never, { slideSizeCache: new Map(), withText: true, withSlideSize: false });
     expect(texts).toEqual([
       { id: "a", text: "hola mundo", fontSize: 18, horizontalAlignment: "Left", verticalAlignment: "Top",
-        autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } },
+        autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 },
+        bold: false, italic: false, underline: "None", strikethrough: null, bulletsVisible: true, indentLevel: null },
     ]);
     expect(ctx.syncCount).toBe(2);
     // Verifica qué se pidió exactamente a cada nivel (textFrame/textRange/paragraphFormat).
@@ -198,7 +199,8 @@ describe("readSelection", () => {
     expect(ph.textFrameLoaded && ph.textRangeLoaded).toBe(true);
     expect(texts).toEqual([
       { id: "ph", text: "hola mundo", fontSize: 18, horizontalAlignment: "Left", verticalAlignment: "Top",
-        autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } },
+        autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 },
+        bold: false, italic: false, underline: "None", strikethrough: null, bulletsVisible: true, indentLevel: null },
     ]);
   });
 

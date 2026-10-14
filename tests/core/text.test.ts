@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   autoSizePatches, casePatches, changeCase, cleanPatches, cleanText, computeTextEdits, fontSizePatches,
-  marginPatches, paragraphAlignPatches, splitLines, verticalAlignPatches, wordWrapPatches,
+  fontSizePresetPatches, indentPatches, marginPatches, paragraphAlignPatches, splitLines,
+  toggleBoldPatches, toggleBulletsPatches, toggleItalicPatches, toggleStrikethroughPatches, toggleUnderlinePatches,
+  verticalAlignPatches, wordWrapPatches,
   STANDARD_MARGINS, ZERO_MARGINS, type TextShape,
 } from "../../src/core/text";
 
 function ts(id: string, over: Partial<TextShape> = {}): TextShape {
   return {
     id, text: "hola mundo", fontSize: 12, horizontalAlignment: "Left", verticalAlignment: "Top",
-    autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 }, ...over,
+    autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 },
+    bold: false, italic: false, underline: "None", strikethrough: false, bulletsVisible: false, indentLevel: 0,
+    ...over,
   };
 }
 
@@ -194,5 +198,100 @@ describe("patch generators", () => {
   it("all generators return [] for empty input", () => {
     expect(casePatches([], "upper")).toEqual([]);
     expect(cleanPatches([])).toEqual([]);
+  });
+});
+
+describe("style toggle generators", () => {
+  it("toggleBoldPatches: all true -> all false", () => {
+    expect(toggleBoldPatches([ts("a", { bold: true }), ts("b", { bold: true })])).toEqual([
+      { id: "a", bold: false },
+      { id: "b", bold: false },
+    ]);
+  });
+  it("toggleBoldPatches: mixed -> all true, skipping shapes already true", () => {
+    expect(toggleBoldPatches([ts("a", { bold: true }), ts("b", { bold: false })])).toEqual([
+      { id: "b", bold: true },
+    ]);
+  });
+  it("toggleBoldPatches: all false -> all true", () => {
+    expect(toggleBoldPatches([ts("a", { bold: false }), ts("b", { bold: false })])).toEqual([
+      { id: "a", bold: true },
+      { id: "b", bold: true },
+    ]);
+  });
+  it("toggleBoldPatches: null values are ignored when deciding the target, but always receive a patch", () => {
+    // Única forma no nula ("a") es true -> destino false; "a" cambia y el null "b" siempre recibe parche.
+    expect(toggleBoldPatches([ts("a", { bold: true }), ts("b", { bold: null })])).toEqual([
+      { id: "a", bold: false },
+      { id: "b", bold: false },
+    ]);
+    expect(toggleBoldPatches([ts("a", { bold: null })])).toEqual([{ id: "a", bold: true }]);
+  });
+  it("toggleBoldPatches on an empty list returns []", () => {
+    expect(toggleBoldPatches([])).toEqual([]);
+  });
+
+  it("toggleItalicPatches and toggleStrikethroughPatches follow the same semantics", () => {
+    expect(toggleItalicPatches([ts("a", { italic: true }), ts("b", { italic: true })])).toEqual([
+      { id: "a", italic: false },
+      { id: "b", italic: false },
+    ]);
+    expect(toggleStrikethroughPatches([ts("a", { strikethrough: false })])).toEqual([
+      { id: "a", strikethrough: true },
+    ]);
+  });
+
+  it("toggleBulletsPatches follows the same semantics", () => {
+    expect(toggleBulletsPatches([ts("a", { bulletsVisible: true }), ts("b", { bulletsVisible: false })])).toEqual([
+      { id: "b", bulletsVisible: true },
+    ]);
+  });
+
+  it("toggleUnderlinePatches: all 'on' (non-\"None\") -> all \"None\"", () => {
+    expect(toggleUnderlinePatches([ts("a", { underline: "Single" }), ts("b", { underline: "Double" })])).toEqual([
+      { id: "a", underline: "None" },
+      { id: "b", underline: "None" },
+    ]);
+  });
+  it("toggleUnderlinePatches: mixed -> all \"Single\", skipping shapes already on (even if not literally \"Single\")", () => {
+    expect(toggleUnderlinePatches([ts("a", { underline: "Double" }), ts("b", { underline: "None" })])).toEqual([
+      { id: "b", underline: "Single" },
+    ]);
+  });
+  it("toggleUnderlinePatches: null values are ignored for the target decision, but always receive a patch", () => {
+    // Única forma no nula ("a") está "on" -> destino "None"; "a" cambia y el null "b" siempre recibe parche.
+    expect(toggleUnderlinePatches([ts("a", { underline: "Single" }), ts("b", { underline: null })])).toEqual([
+      { id: "a", underline: "None" },
+      { id: "b", underline: "None" },
+    ]);
+  });
+});
+
+describe("fontSizePresetPatches", () => {
+  it("applies the preset to every shape whose size differs, including mixed/null", () => {
+    expect(fontSizePresetPatches([ts("a", { fontSize: 12 }), ts("b", { fontSize: null }), ts("c", { fontSize: 24 })], 24)).toEqual([
+      { id: "a", fontSize: 24 },
+      { id: "b", fontSize: 24 },
+    ]);
+  });
+  it("returns [] when every shape already has the target size", () => {
+    expect(fontSizePresetPatches([ts("a", { fontSize: 24 })], 24)).toEqual([]);
+  });
+});
+
+describe("indentPatches", () => {
+  it("increments, skipping null (mixed) shapes", () => {
+    expect(indentPatches([ts("a", { indentLevel: 1 }), ts("b", { indentLevel: null })], 1)).toEqual([
+      { id: "a", indentLevel: 2 },
+    ]);
+  });
+  it("clamps to [0, 8]", () => {
+    expect(indentPatches([ts("a", { indentLevel: 8 })], 1)).toEqual([]);
+    expect(indentPatches([ts("a", { indentLevel: 0 })], -1)).toEqual([]);
+    expect(indentPatches([ts("a", { indentLevel: 7 })], 5)).toEqual([{ id: "a", indentLevel: 8 }]);
+  });
+  it("rejects a no-op or non-finite delta", () => {
+    expect(indentPatches([ts("a", { indentLevel: 2 })], 0)).toEqual([]);
+    expect(indentPatches([ts("a", { indentLevel: 2 })], NaN)).toEqual([]);
   });
 });

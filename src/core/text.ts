@@ -10,6 +10,13 @@ export interface TextShape {
   autoSize: string;                     // PowerPoint.ShapeAutoSize
   wordWrap: boolean;
   margins: Margins;
+  bold: boolean | null;
+  italic: boolean | null;
+  underline: string | null;             // PowerPoint.ShapeFontUnderlineStyle; "None" = sin subrayado
+  strikethrough: boolean | null;
+  bulletsVisible: boolean | null;
+  /** `null` cuando el host no soporta PowerPointApi 1.10 (no se puede leer/escribir). */
+  indentLevel: number | null;
 }
 
 /** Edición de un sub-rango de texto. `start`/`length` son índices UTF-16 sobre el texto ANTIGUO (como en los strings de JS). */
@@ -30,6 +37,12 @@ export interface TextPatch {
   autoSize?: string;
   wordWrap?: boolean;
   margins?: Margins;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: string;
+  strikethrough?: boolean;
+  bulletsVisible?: boolean;
+  indentLevel?: number;
 }
 
 export type CaseMode = "upper" | "lower" | "sentence" | "title";
@@ -361,4 +374,85 @@ export function autoSizePatches(shapes: TextShape[], mode: string): TextPatch[] 
 
 export function wordWrapPatches(shapes: TextShape[], on: boolean): TextPatch[] {
   return shapes.filter((s) => s.wordWrap !== on).map((s) => ({ id: s.id, wordWrap: on }));
+}
+
+/** `true` si hay al menos un valor no nulo en `values` y todos son "on" según `isOn`. */
+function nonNullAllOn<T>(values: (T | null)[], isOn: (v: T) => boolean): boolean {
+  const known = values.filter((v): v is T => v !== null);
+  return known.length > 0 && known.every(isOn);
+}
+
+/**
+ * Conmutador genérico de un campo booleano: si todas las formas con valor no nulo están en
+ * `true`, las pone en `false`; si no (incluido el caso de que todas estén en `null`, o mixto),
+ * las pone en `true`. Omite las formas que ya están en el estado destino; una forma con valor
+ * `null` siempre recibe parche.
+ */
+function toggleBooleanPatches(
+  shapes: TextShape[],
+  get: (s: TextShape) => boolean | null,
+  set: (id: string, value: boolean) => TextPatch,
+): TextPatch[] {
+  const target = !nonNullAllOn(shapes.map(get), (v) => v);
+  const out: TextPatch[] = [];
+  for (const s of shapes) {
+    if (get(s) === target) continue;
+    out.push(set(s.id, target));
+  }
+  return out;
+}
+
+export function toggleBoldPatches(shapes: TextShape[]): TextPatch[] {
+  return toggleBooleanPatches(shapes, (s) => s.bold, (id, value) => ({ id, bold: value }));
+}
+
+export function toggleItalicPatches(shapes: TextShape[]): TextPatch[] {
+  return toggleBooleanPatches(shapes, (s) => s.italic, (id, value) => ({ id, italic: value }));
+}
+
+export function toggleStrikethroughPatches(shapes: TextShape[]): TextPatch[] {
+  return toggleBooleanPatches(shapes, (s) => s.strikethrough, (id, value) => ({ id, strikethrough: value }));
+}
+
+export function toggleBulletsPatches(shapes: TextShape[]): TextPatch[] {
+  return toggleBooleanPatches(shapes, (s) => s.bulletsVisible, (id, value) => ({ id, bulletsVisible: value }));
+}
+
+/**
+ * Conmuta el subrayado: "on" es cualquier valor distinto de `"None"`. Si todas las formas con
+ * valor no nulo están "on", las pone en `"None"`; si no, las pone en `"Single"`. Una forma ya
+ * "on" (p. ej. `"Double"`) que se mantiene "on" no recibe parche, aunque su valor no sea
+ * literalmente `"Single"`: el conmutador opera sobre el estado on/off, no sobre el estilo exacto.
+ */
+export function toggleUnderlinePatches(shapes: TextShape[]): TextPatch[] {
+  const allOn = nonNullAllOn(shapes.map((s) => s.underline), (v) => v !== "None");
+  const target = allOn ? "None" : "Single";
+  const targetOn = target !== "None";
+  const out: TextPatch[] = [];
+  for (const s of shapes) {
+    const v = s.underline;
+    if (v !== null && (v !== "None") === targetOn) continue;
+    out.push({ id: s.id, underline: target });
+  }
+  return out;
+}
+
+/** Aplica un tamaño de fuente predefinido a todas las formas cuyo tamaño no sea ya ese (incluidas las mixtas/nulas). */
+export function fontSizePresetPatches(shapes: TextShape[], size: number): TextPatch[] {
+  return shapes.filter((s) => s.fontSize !== size).map((s) => ({ id: s.id, fontSize: size }));
+}
+
+export const MIN_INDENT_LEVEL = 0;
+export const MAX_INDENT_LEVEL = 8;
+
+/** Suma `delta` niveles de sangría, con clamp 0..8. Omite formas con sangría mixta (null, p. ej. sin soporte de API 1.10). */
+export function indentPatches(shapes: TextShape[], delta: number): TextPatch[] {
+  if (!Number.isFinite(delta) || delta === 0) return [];
+  const out: TextPatch[] = [];
+  for (const s of shapes) {
+    if (s.indentLevel === null) continue;
+    const next = Math.min(MAX_INDENT_LEVEL, Math.max(MIN_INDENT_LEVEL, s.indentLevel + delta));
+    if (next !== s.indentLevel) out.push({ id: s.id, indentLevel: next });
+  }
+  return out;
 }

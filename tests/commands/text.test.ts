@@ -104,8 +104,10 @@ describe("text commands", () => {
 
   it("every text command computes patches referencing only the selected shapes, without throwing", () => {
     const shapes: TextShape[] = [
-      { id: "a", text: "hola mundo", fontSize: 18, horizontalAlignment: "Left", verticalAlignment: "Top", autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } },
-      { id: "b", text: "otro texto", fontSize: 24, horizontalAlignment: "Center", verticalAlignment: "Middle", autoSize: "AutoSizeTextToFitShape", wordWrap: false, margins: { left: 0, right: 0, top: 0, bottom: 0 } },
+      { id: "a", text: "hola mundo", fontSize: 18, horizontalAlignment: "Left", verticalAlignment: "Top", autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 },
+        bold: false, italic: false, underline: "None", strikethrough: false, bulletsVisible: true, indentLevel: 0 },
+      { id: "b", text: "otro texto", fontSize: 24, horizontalAlignment: "Center", verticalAlignment: "Middle", autoSize: "AutoSizeTextToFitShape", wordWrap: false, margins: { left: 0, right: 0, top: 0, bottom: 0 },
+        bold: true, italic: true, underline: "Single", strikethrough: true, bulletsVisible: false, indentLevel: 3 },
     ];
     const ids = new Set(shapes.map((s) => s.id));
 

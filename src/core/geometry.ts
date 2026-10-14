@@ -138,3 +138,31 @@ export function stretchToEdge(shapes: ShapeModel[], edge: Edge): Patch[] {
   }
   return patches;
 }
+
+export interface MatrixOptions {
+  columns: number;
+  gapX: number;
+  gapY: number;
+}
+
+/**
+ * Coloca las formas en una rejilla de `columns` columnas, en orden de lectura (top, luego left),
+ * partiendo de la esquina superior izquierda de la selección. Cada celda mide el máximo ancho/alto.
+ */
+export function arrangeMatrix(shapes: ShapeModel[], opts: MatrixOptions): Patch[] {
+  if (shapes.length < 2 || !Number.isInteger(opts.columns) || opts.columns < 1) return [];
+  const ordered = [...shapes].sort((a, b) => a.top - b.top || a.left - b.left);
+  const originX = Math.min(...shapes.map((s) => s.left));
+  const originY = Math.min(...shapes.map((s) => s.top));
+  const cellW = Math.max(...shapes.map((s) => s.width));
+  const cellH = Math.max(...shapes.map((s) => s.height));
+  const patches: Patch[] = [];
+  ordered.forEach((s, i) => {
+    const col = i % opts.columns;
+    const row = Math.floor(i / opts.columns);
+    const left = originX + col * (cellW + opts.gapX);
+    const top = originY + row * (cellH + opts.gapY);
+    if (!near(left, s.left) || !near(top, s.top)) patches.push({ id: s.id, left, top });
+  });
+  return patches;
+}

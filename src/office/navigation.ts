@@ -1,9 +1,6 @@
 import type { ZOrderOp } from "../core/expert";
 import type { ShapeModel } from "../core/types";
-
-/** Propiedades de forma que se cargan al leer las formas de una diapositiva (igual que `selection.ts`). */
-const SHAPE_PROPS =
-  "items/id,items/name,items/type,items/left,items/top,items/width,items/height,items/rotation,items/zOrderPosition,items/level";
+import { SHAPE_PROPS } from "./selection";
 
 export interface SlideNav {
   /** Id de la diapositiva activa (primer item de `getSelectedSlides()`). */
@@ -19,6 +16,11 @@ export interface SlideNav {
 /**
  * Lee la navegación de diapositivas: todas las diapositivas (para contarlas y poder saltar por
  * índice) y cuál está activa. Un solo `sync()`. Lanza si la presentación no tiene diapositivas.
+ *
+ * Fallback a la primera diapositiva (`index: 0`): si `getSelectedSlides()` no devuelve ninguna
+ * diapositiva (nada seleccionado) o devuelve un id que ya no está en `ids` (p. ej. una diapositiva
+ * borrada entre la selección y esta lectura), se asume activa la primera diapositiva del deck en
+ * vez de devolver un `index` de -1.
  */
 export async function readSlideNav(context: PowerPoint.RequestContext): Promise<SlideNav> {
   const slides = context.presentation.slides;
@@ -30,11 +32,13 @@ export async function readSlideNav(context: PowerPoint.RequestContext): Promise<
   const ids = slides.items.map((s) => s.id);
   if (ids.length === 0) throw new Error("No hay diapositivas.");
 
+  const selectedId = selectedSlides.items[0]?.id;
+  const index = selectedId !== undefined ? ids.indexOf(selectedId) : -1;
+  if (index >= 0) return { slideId: selectedId!, index, count: ids.length, ids };
+
   // `ids[0]` está garantizado por el chequeo de arriba (ids.length > 0), pero TS no lo infiere al
   // indexar un array con `noUncheckedIndexedAccess`.
-  const slideId = selectedSlides.items[0]?.id ?? ids[0]!;
-  const index = ids.indexOf(slideId);
-  return { slideId, index, count: ids.length, ids };
+  return { slideId: ids[0]!, index: 0, count: ids.length, ids };
 }
 
 /**
@@ -87,7 +91,7 @@ export function groupSelected(context: PowerPoint.RequestContext): void {
  *  Permite mocks en tests (igual que `WritableShape` en `apply.ts`). */
 export interface ShapeOpsProxy {
   name: string;
-  group: { ungroup(): void };
+  readonly group: { ungroup(): void };
   setZOrder(op: ZOrderOp): void;
 }
 

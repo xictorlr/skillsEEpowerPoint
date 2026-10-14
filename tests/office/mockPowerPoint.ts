@@ -114,7 +114,7 @@ export class MockShape {
   /** `shape.group.ungroup()`: registra `{ path: "ungroup", value: null }` en `formatWrites`. */
   readonly group = {
     ungroup: () => {
-      this.formatWrites.push({ path: "ungroup", value: null });
+      this.recordFormatWrite("ungroup", null);
     },
   };
 
@@ -146,7 +146,7 @@ export class MockShape {
       get: () => nameValue,
       set: (v: string) => {
         nameValue = v;
-        this.formatWrites.push({ path: "name", value: v });
+        this.recordFormatWrite("name", v);
       },
       enumerable: true,
     });
@@ -163,11 +163,11 @@ export class MockShape {
       setSolidColor: (c: string) => {
         fillImpl.type = "Solid";
         fillImpl.foregroundColor = c;
-        this.formatWrites.push({ path: "fill.setSolidColor", value: c });
+        this.recordFormatWrite("fill.setSolidColor", c);
       },
       clear: () => {
         fillImpl.type = "NoFill";
-        this.formatWrites.push({ path: "fill.clear", value: null });
+        this.recordFormatWrite("fill.clear", null);
       },
     };
     let fillTransparency = fillInit.transparency;
@@ -175,7 +175,7 @@ export class MockShape {
       get: () => fillTransparency,
       set: (v: number | null) => {
         fillTransparency = v;
-        this.formatWrites.push({ path: "fill.transparency", value: v });
+        this.recordFormatWrite("fill.transparency", v);
       },
       enumerable: true,
     });
@@ -200,7 +200,7 @@ export class MockShape {
         get: () => value,
         set: (v: unknown) => {
           value = v;
-          this.formatWrites.push({ path: `lineFormat.${key}`, value: v });
+          this.recordFormatWrite(`lineFormat.${key}`, v);
         },
         enumerable: true,
       });
@@ -240,7 +240,7 @@ export class MockShape {
           get: () => value,
           set: (v: unknown) => {
             value = v;
-            this.formatWrites.push({ path: `font.${key}`, value: v });
+            this.recordFormatWrite(`font.${key}`, v);
           },
           enumerable: true,
         });
@@ -257,7 +257,7 @@ export class MockShape {
         get: () => horizontalAlignment,
         set: (v: string | null) => {
           horizontalAlignment = v;
-          this.formatWrites.push({ path: "paragraphFormat.horizontalAlignment", value: v });
+          this.recordFormatWrite("paragraphFormat.horizontalAlignment", v);
         },
         enumerable: true,
       });
@@ -276,7 +276,7 @@ export class MockShape {
             get: () => textValue.slice(start, start + length),
             set: (v: string) => {
               textValue = textValue.slice(0, start) + v + textValue.slice(start + length);
-              this.formatWrites.push({ path: "textRange.substring", value: { start, length, text: v } });
+              this.recordFormatWrite("textRange.substring", { start, length, text: v });
             },
             enumerable: true,
           });
@@ -293,7 +293,7 @@ export class MockShape {
         get: () => textValue,
         set: (v: string) => {
           textValue = v;
-          this.formatWrites.push({ path: "textRange.text", value: v });
+          this.recordFormatWrite("textRange.text", v);
         },
         enumerable: true,
       });
@@ -311,7 +311,7 @@ export class MockShape {
           get: () => value,
           set: (v: unknown) => {
             value = v;
-            this.formatWrites.push({ path: `textFrame.${key}`, value: v });
+            this.recordFormatWrite(`textFrame.${key}`, v);
           },
           enumerable: true,
         });
@@ -336,7 +336,17 @@ export class MockShape {
 
   /** `shape.setZOrder(op)`: registra `{ path: "setZOrder", value: op }` en `formatWrites`. */
   setZOrder(op: string): void {
-    this.formatWrites.push({ path: "setZOrder", value: op });
+    this.recordFormatWrite("setZOrder", op);
+  }
+
+  /**
+   * Registra una escritura de formato: en `this.formatWrites` (como antes) y, si la forma
+   * pertenece a un contexto, también en `ctx.calls` (con el id de la forma) para poder verificar
+   * el orden de llamadas entre varias formas (p. ej. `applyZOrder` sobre varios ids).
+   */
+  private recordFormatWrite(path: string, value: unknown): void {
+    this.formatWrites.push({ path, value });
+    this.ctx?.calls.push({ id: this.id, path, value });
   }
 }
 
@@ -417,6 +427,10 @@ export class MockContext {
   selectedShapeIds?: string[];
   /** `presentation.getSelectedShapes().group()`: true si se llamó. */
   grouped = false;
+  /** Cada escritura de formato de cualquier `MockShape` de este contexto, en el orden en que
+   *  ocurrió (incluye el id de la forma); ver `MockShape.recordFormatWrite`. Permite verificar el
+   *  orden de llamadas entre varias formas (p. ej. `applyZOrder` sobre varios ids). */
+  calls: Array<{ id: string; path: string; value: unknown }> = [];
   readonly slidesList: MockSlide[];
   activeSlideIndex: number;
 

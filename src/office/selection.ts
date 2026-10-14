@@ -36,7 +36,8 @@ export interface SelectionRead {
   texts: TextShape[];
 }
 
-const SHAPE_PROPS = "items/id,items/name,items/type,items/left,items/top,items/width,items/height,items/rotation,items/zOrderPosition,items/level";
+/** Propiedades de forma que se cargan al leer geometría + tipo (fase 1); ver también `navigation.ts`. */
+export const SHAPE_PROPS = "items/id,items/name,items/type,items/left,items/top,items/width,items/height,items/rotation,items/zOrderPosition,items/level";
 
 /**
  * Fases 2 y 3 de la lectura (ver `readSelection`): fill/lineFormat/fuente -y, si `withText`, el

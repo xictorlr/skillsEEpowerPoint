@@ -27,6 +27,15 @@ describe("readSlideNav", () => {
     const ctx = new MockContext([], "", { slides: [] });
     await expect(readSlideNav(ctx as never)).rejects.toThrow("No hay diapositivas.");
   });
+
+  it("falls back to the first slide (index 0) when the active slide isn't among ids", async () => {
+    const ctx = new MockContext([], "", {
+      slides: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      activeSlideIndex: 99,
+    });
+    const nav = await readSlideNav(ctx as never);
+    expect(nav).toEqual({ slideId: "s1", index: 0, count: 3, ids: ["s1", "s2", "s3"] });
+  });
 });
 
 describe("selectSlideByIndex", () => {
@@ -90,6 +99,24 @@ describe("selectShapes / groupSelected / ungroupShapes / renameShapes / applyZOr
     expect(b.formatWrites).toEqual([
       { path: "name", value: "Dos" },
       { path: "setZOrder", value: "BringToFront" },
+    ]);
+  });
+
+  it("applyZOrder logs calls on ctx.calls in the given order, across shapes", () => {
+    const a = new MockShape({ id: "a", left: 0, top: 0, width: 1, height: 1 });
+    const b = new MockShape({ id: "b", left: 0, top: 0, width: 1, height: 1 });
+    const ctx = new MockContext([a, b]);
+    const proxies = new Map<string, ShapeOpsProxy>([
+      ["a", a],
+      ["b", b],
+    ]);
+
+    applyZOrder(proxies, ["b", "a"], "BringToFront");
+
+    expect(ctx.calls.map((c) => c.id)).toEqual(["b", "a"]);
+    expect(ctx.calls).toEqual([
+      { id: "b", path: "setZOrder", value: "BringToFront" },
+      { id: "a", path: "setZOrder", value: "BringToFront" },
     ]);
   });
 });

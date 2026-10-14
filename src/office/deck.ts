@@ -112,23 +112,65 @@ export function readFontName(shape: PowerPoint.Shape): string | null {
 
 /**
  * Añade una diapositiva al final del mazo y la mueve justo después de la diapositiva en `index`
- * (0-based), es decir, a la posición `index + 1`. Un solo `sync()`: `slides.add()` no devuelve la
- * diapositiva creada, pero `getCount()` se puede encolar en el mismo lote (ambas operaciones se
- * ejecutan en el servidor en el orden en que se encolaron, así que el conteo ya refleja la
- * diapositiva añadida) y leerse tras ese único sync para indexar la última con `getItemAt`.
- * `moveTo(index + 1)` (requiere PowerPointApi 1.8, el mínimo del manifiesto) queda encolado sin un
- * sync final: el llamador decide cuándo sincronizar (p. ej. junto con otras escrituras posteriores,
- * como el contenido del nuevo cuadro de texto).
+ * (0-based), es decir, a la posición `index + 1`. Si se da `layoutId` (ver `findBlankLayoutId`), la
+ * nueva diapositiva nace con ese layout en vez del layout por defecto. Un solo `sync()`:
+ * `slides.add()` no devuelve la diapositiva creada, pero `getCount()` se puede encolar en el mismo
+ * lote (ambas operaciones se ejecutan en el servidor en el orden en que se encolaron, así que el
+ * conteo ya refleja la diapositiva añadida) y leerse tras ese único sync para indexar la última con
+ * `getItemAt`. `moveTo(index + 1)` (requiere PowerPointApi 1.8, el mínimo del manifiesto) queda
+ * encolado sin un sync final: el llamador decide cuándo sincronizar (p. ej. junto con otras
+ * escrituras posteriores, como el contenido del nuevo cuadro de texto).
  */
-export async function addSlideAfter(context: PowerPoint.RequestContext, index: number): Promise<PowerPoint.Slide> {
+export async function addSlideAfter(context: PowerPoint.RequestContext, index: number, layoutId?: string): Promise<PowerPoint.Slide> {
   const slides = context.presentation.slides;
-  slides.add();
+  if (layoutId) slides.add({ layoutId });
+  else slides.add();
   const count = slides.getCount();
   await context.sync();
 
   const slide = slides.getItemAt(count.value - 1);
   slide.moveTo(index + 1);
   return slide;
+}
+
+/**
+ * Busca el primer layout "en blanco" entre los layouts del primer slide master (el único relevante
+ * para añadir diapositivas: `slides.add({ layoutId })` toma el layout de ese master). Un solo
+ * `sync()`. Devuelve `undefined` si ninguno coincide, o si falla la lectura (p. ej. la presentación
+ * no tiene slide masters) — nunca lanza.
+ */
+export async function findBlankLayoutId(context: PowerPoint.RequestContext): Promise<string | undefined> {
+  try {
+    const layouts = context.presentation.slideMasters.getItemAt(0).layouts;
+    layouts.load("items/id,items/name");
+    await context.sync();
+
+    return layouts.items.find((l) => /blank|en blanco|vac[ií]o/i.test(l.name))?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Borra los marcadores de posición ("Placeholder") de `slide`: red de seguridad para cuando
+ * `findBlankLayoutId` no encontró ningún layout en blanco y la diapositiva añadida trae los
+ * marcadores del layout por defecto. Un solo `sync()` para conocer el tipo de cada forma; los
+ * `delete()` quedan encolados sin un sync final (el llamador decide cuándo sincronizar). Devuelve
+ * cuántos se encolaron para borrar.
+ */
+export async function deletePlaceholders(context: PowerPoint.RequestContext, slide: PowerPoint.Slide): Promise<number> {
+  const shapes = slide.shapes;
+  shapes.load("items/id,items/type");
+  await context.sync();
+
+  let count = 0;
+  for (const s of shapes.items) {
+    if (String(s.type) === "Placeholder") {
+      s.delete();
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /**

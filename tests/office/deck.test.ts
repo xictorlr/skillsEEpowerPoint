@@ -4,8 +4,10 @@ import {
   addTextBox,
   createPresentation,
   DECK_PROPS,
+  deletePlaceholders,
   deleteShapes,
   exportSlides,
+  findBlankLayoutId,
   loadFontNames,
   loadHasText,
   readDeckShapes,
@@ -172,7 +174,66 @@ describe("addSlideAfter", () => {
     expect(ctx.syncCount).toBe(1);
     expect(ctx.slidesList).toHaveLength(3);
     expect(slide.id).toBe("new-slide-1");
-    expect(ctx.calls).toEqual([{ id: "new-slide-1", path: "moveTo", value: 2 }]);
+    expect(ctx.calls).toEqual([
+      { id: "presentation", path: "slides.add", value: undefined },
+      { id: "new-slide-1", path: "moveTo", value: 2 },
+    ]);
+  });
+
+  it("passes { layoutId } to slides.add when given", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
+
+    await addSlideAfter(ctx as never, 0, "lay-blank");
+
+    expect(ctx.calls[0]).toEqual({ id: "presentation", path: "slides.add", value: { layoutId: "lay-blank" } });
+  });
+});
+
+describe("findBlankLayoutId", () => {
+  it("returns the id of the first layout whose name matches blank/en blanco/vacío, in a single sync", async () => {
+    const ctx = new MockContext([]);
+    const id = await findBlankLayoutId(ctx as never);
+    expect(id).toBe("lay-blank");
+    expect(ctx.syncCount).toBe(1);
+  });
+
+  it("returns undefined when no layout matches", async () => {
+    const ctx = new MockContext([], "", { layouts: [{ id: "lay-title", name: "Title Slide" }, { id: "lay-content", name: "Title and Content" }] });
+    const id = await findBlankLayoutId(ctx as never);
+    expect(id).toBeUndefined();
+  });
+
+  it("returns undefined instead of throwing when reading layouts fails", async () => {
+    const ctx = new MockContext([]);
+    ctx.invalidTouched = true; // fuerza que el próximo sync() lance
+    const id = await findBlankLayoutId(ctx as never);
+    expect(id).toBeUndefined();
+  });
+});
+
+describe("deletePlaceholders", () => {
+  it("deletes every placeholder shape of the slide and returns the count, in a single sync", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "s1" }], newSlidePlaceholders: 2 });
+    const slide = await addSlideAfter(ctx as never, 0);
+    const syncsBefore = ctx.syncCount;
+
+    const count = await deletePlaceholders(ctx as never, slide);
+
+    expect(count).toBe(2);
+    expect(ctx.syncCount).toBe(syncsBefore + 1);
+    const placeholderDeletes = ctx.calls.filter((c) => c.path === "delete");
+    expect(placeholderDeletes).toHaveLength(2);
+  });
+
+  it("returns 0 for a slide with no placeholders", async () => {
+    const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 1, height: 1 });
+    const ctx = new MockContext([], "", { slides: [{ id: "s1", shapes: [box] }] });
+    const slide = ctx.slidesList[0]!;
+
+    const count = await deletePlaceholders(ctx as never, slide as never);
+
+    expect(count).toBe(0);
+    expect(box.formatWrites).toEqual([]);
   });
 });
 

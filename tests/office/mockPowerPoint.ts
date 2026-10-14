@@ -74,6 +74,12 @@ export interface MockLineFormat {
 
 export type MockFont = Record<string, unknown> & { load: (props: string) => void };
 
+/** Layouts del primer slide master, por defecto, cuando `MockContextOptions.layouts` no se da. */
+const DEFAULT_LAYOUTS: Array<{ id: string; name: string }> = [
+  { id: "lay-title", name: "Title Slide" },
+  { id: "lay-blank", name: "Blank" },
+];
+
 const DEFAULT_FILL = { type: "Solid", foregroundColor: "#FF0000", transparency: 0 };
 const DEFAULT_LINE = { visible: true, color: "#000000", weight: 1, dashStyle: "Solid", transparency: 0 };
 const DEFAULT_FONT = { name: "Calibri", size: 18, color: "#000000", bold: false, italic: false, underline: "None" };
@@ -436,6 +442,11 @@ export interface MockContextOptions {
   slides?: MockSlideInit[];
   /** Índice (en `slides`, o en la diapositiva sintetizada) de la diapositiva activa. Por defecto 0. */
   activeSlideIndex?: number;
+  /** Layouts de `presentation.slideMasters.getItemAt(0).layouts`. Por defecto `DEFAULT_LAYOUTS`. */
+  layouts?: Array<{ id: string; name: string }>;
+  /** Cantidad de marcadores de posición ("Placeholder") con los que nace cada diapositiva creada
+   *  vía `slides.add()`, para poder probar `deletePlaceholders`. Por defecto 0. */
+  newSlidePlaceholders?: number;
 }
 
 export class MockContext {
@@ -518,13 +529,31 @@ export class MockContext {
           return found;
         },
         getCount: () => ({ value: this.slidesList.length }),
-        /** `slides.add()`: crea un `MockSlide` nuevo al final (sin formas) y no devuelve nada,
+        /** `slides.add(opts)`: registra `{ id: "presentation", path: "slides.add", value: opts }`
+         *  en `ctx.calls` y crea un `MockSlide` nuevo al final (con `opts.newSlidePlaceholders`
+         *  marcadores de posición, para poder probar `deletePlaceholders`); no devuelve nada,
          *  igual que en Office.js real (ver `addSlideAfter` en `deck.ts`). */
-        add: () => {
+        add: (addOptions?: { layoutId?: string }) => {
+          this.calls.push({ id: "presentation", path: "slides.add", value: addOptions });
           this.addedSlides += 1;
-          this.slidesList.push(new MockSlide(this, `new-slide-${this.addedSlides}`, this.slidesList.length, []));
+          const placeholderCount = this.opts.newSlidePlaceholders ?? 0;
+          const placeholders: MockShape[] = [];
+          for (let i = 0; i < placeholderCount; i += 1) {
+            placeholders.push(new MockShape({ id: `new-slide-${this.addedSlides}-ph-${i + 1}`, type: "Placeholder", left: 0, top: 0, width: 1, height: 1 }));
+          }
+          this.slidesList.push(new MockSlide(this, `new-slide-${this.addedSlides}`, this.slidesList.length, placeholders));
         },
         exportAsBase64Presentation: (ids: string[]) => ({ value: `BASE64:${ids.join(",")}` }),
+      },
+      slideMasters: {
+        getItemAt: (_index: number) => ({
+          layouts: {
+            items: this.opts.layouts ?? DEFAULT_LAYOUTS,
+            load: (_props: string) => {
+              /* no-op: los valores ya están disponibles en el mock */
+            },
+          },
+        }),
       },
       pageSetup: {
         slideWidth: this.opts.pageSetup?.slideWidth ?? 0,

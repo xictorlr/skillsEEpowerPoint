@@ -58,6 +58,32 @@ Ajustes); alineación de párrafo izquierda / centro / derecha / justificado; te
 márgenes internos a cero / estándar; autoajuste: sin autoajuste / reducir texto al desbordar / ajustar
 forma al texto; ajustar texto a la forma sí/no; limpiar texto.
 
+## Comandos (Fase 4)
+
+**Navigation:** primera / anterior / siguiente / última diapositiva, e "Ir a diapositiva" (campo
+numérico + botón "Ir"). El indicador "N / M" y el límite del campo "Ir a" se actualizan solos con
+la diapositiva activa.
+
+**Expert:** seleccionar por tipo (Todas, Texto, Formas, Imágenes, Líneas, Tablas, Grupos, Otras,
+sobre la diapositiva activa), seleccionar por nombre (subcadena, sin distinguir mayúsculas ni
+acentos), renombrar numerado (prefijo configurable, orden de lectura), traer al frente / adelante
+/ enviar atrás / al fondo, agrupar / desagrupar, e inspector de posición y tamaño (X, Y, Ancho,
+Alto en puntos) que lee y escribe la caja envolvente de la selección en vivo.
+
+Con PowerPoint reciente (PowerPointApi 1.10) el tamaño de diapositiva es exacto (ver Fase 1) y
+en **Color** aparece una fila "Tema" con los 12 colores del tema de la diapositiva activa, que se
+pueden usar igual que la paleta o los recientes.
+
+Limitaciones de Fase 4:
+
+- El inspector mueve/escala la selección de forma proporcional respecto a su caja envolvente
+  actual: cambiar solo un eje (p. ej. Ancho) no deja el resto del eje intacto si la caja de
+  partida no estaba ya alineada a ese borde.
+- "Seleccionar por tipo" y "Seleccionar por nombre" actúan sobre la diapositiva activa, no sobre
+  toda la presentación.
+- La fila "Tema" solo aparece en PowerPoint con PowerPointApi 1.10; en el resto, Color se queda
+  sin esa fila (la paleta fija y los recientes siguen disponibles).
+
 ## Limitaciones conocidas
 
 - Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
@@ -100,8 +126,8 @@ declarativos), `src/taskpane` (UI). Diseño completo en `docs/superpowers/specs/
 
 ## Hoja de ruta
 
-Fase 2 Format + Color (hecho) · Fase 3 Text (hecho) · Fase 4 Navigation & Expert Tools · Fase 5 Check +
-Presentation · Fase 6 Wizards.
+Fase 2 Format + Color (hecho) · Fase 3 Text (hecho) · Fase 4 Navigation & Expert Tools (hecho) ·
+Fase 5 Check + Presentation · Fase 6 Wizards.
 
 ## Prueba manual
 
@@ -125,3 +151,13 @@ Tras instalar el add-in, en una presentación de prueba:
    párrafos vacíos en medio y al final (deben desaparecer conservando negritas); "Tipo oración" en un texto con
    un salto de línea suave (Mayús+Intro) dentro de una frase (no debe capitalizar tras el salto); "Texto en el
    medio" sobre una forma ya centrada horizontalmente (debe conservar el centrado). Si algo falla, Cmd+Z lo deshace.
+
+8. **Navigation/Expert:** en una presentación de 4+ diapositivas, usa primera/anterior/siguiente/última y
+   comprueba que el indicador "N / M" sigue a la diapositiva activa; escribe un número en "Ir a" y pulsa "Ir"
+   (y prueba uno fuera de rango: debe avisar sin mover la selección). En una diapositiva con formas de varios
+   tipos, "Seleccionar por tipo" (p. ej. "Imágenes") selecciona solo esas formas de la diapositiva activa, y
+   "Seleccionar por nombre" selecciona las que contienen el texto buscado. Cambia el "Prefijo" y pulsa
+   "Renombrar numerado" sobre 3 formas: deben quedar nombradas en orden de lectura. Con 3 formas superpuestas,
+   "Traer al frente" / "Enviar al fondo" cambian su apilado; selecciona 2 y "Agrupar", luego "Desagrupar".
+   Por último, con una forma seleccionada, cambia X/Y/Ancho/Alto en el inspector y confirma que la forma se
+   mueve/escala en consecuencia, y que los campos se actualizan solos al cambiar de selección.

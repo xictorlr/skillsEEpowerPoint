@@ -82,22 +82,62 @@ describe("readSelection", () => {
     expect(ctx.imageOptions).toBeUndefined();
   });
 
-  it("loads format props and fonts when withFormat is set (two read syncs) and returns formats", async () => {
+  it("loads fill/line/font per shape type when withFormat is set (two read syncs for non-placeholder shapes) and returns formats", async () => {
     const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 20,
       font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
     const ctx = new MockContext([box], "bad-png");
-    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), slideSizeOverride: { width: 960, height: 540 }, withFormat: true });
-    expect(ctx.loadedProps).toContain("items/fill/type");
-    expect(ctx.loadedProps).toContain("items/lineFormat/weight");
+    const { formats, caps } = await readSelection(ctx as never, { slideSizeCache: new Map(), slideSizeOverride: { width: 960, height: 540 }, withFormat: true });
+    // fill/line ya no se cargan a nivel de colección: se cargan por forma (fase 2), según su tipo.
+    expect(ctx.loadedProps).not.toContain("fill");
+    expect(box.fillLoaded).toBe(true);
+    expect(box.lineLoaded).toBe(true);
     expect(box.fontLoaded).toBe(true);
     expect(ctx.syncCount).toBe(2);
     expect(formats[0]?.font?.name).toBe("Arial");
+    expect(caps.get("a")).toEqual({ fill: true, line: true, font: true });
   });
 
   it("does not load format props by default", async () => {
     const ctx = new MockContext([new MockShape({ id: "a", left: 0, top: 0, width: 1, height: 1 })], "bad-png");
-    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), slideSizeOverride: { width: 960, height: 540 } });
-    expect(ctx.loadedProps).not.toContain("items/fill/type");
+    const { formats, caps } = await readSelection(ctx as never, { slideSizeCache: new Map(), slideSizeOverride: { width: 960, height: 540 } });
+    expect(ctx.loadedProps).not.toContain("fill");
     expect(formats).toEqual([]);
+    expect(caps.size).toBe(0);
+  });
+
+  it("skips fill/line/font entirely for a shape type that doesn't support any of them (2 syncs, no placeholder phase)", async () => {
+    const group = new MockShape({ id: "g", type: "Group", left: 0, top: 0, width: 5, height: 5, supportsFormat: false });
+    const ctx = new MockContext([group], "bad-png");
+    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), withFormat: true, withSlideSize: false });
+    expect(ctx.syncCount).toBe(2);
+    expect(formats).toEqual([{ id: "g", fill: null, line: null, font: null, size: { width: 5, height: 5 } }]);
+  });
+
+  it("does a third sync for placeholders, and skips the font when their content isn't text", async () => {
+    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: "Image",
+      font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
+    const ctx = new MockContext([ph], "bad-png");
+    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), withFormat: true, withSlideSize: false });
+    expect(ctx.syncCount).toBe(3);
+    expect(ph.fontLoaded).toBe(false);
+    expect(formats[0]?.font).toBeNull();
+  });
+
+  it("loads and returns the font for a placeholder whose content is text (containedType null)", async () => {
+    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: null,
+      font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
+    const ctx = new MockContext([ph], "bad-png");
+    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), withFormat: true, withSlideSize: false });
+    expect(ctx.syncCount).toBe(3);
+    expect(ph.fontLoaded).toBe(true);
+    expect(formats[0]?.font?.name).toBe("Arial");
+  });
+
+  it("skips getSlideSize entirely when withSlideSize is false, using the default placeholder size", async () => {
+    const ctx = new MockContext([], "bad-png");
+    const { selection } = await readSelection(ctx as never, { slideSizeCache: new Map(), withSlideSize: false });
+    expect(selection.slide).toEqual({ width: 960, height: 540 });
+    expect(ctx.imageOptions).toBeUndefined();
+    expect(ctx.syncCount).toBe(1); // solo la carga de geometría; ni render ni formato
   });
 });

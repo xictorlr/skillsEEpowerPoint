@@ -26,9 +26,12 @@ export interface FontFormat {
 
 export interface ShapeFormat {
   id: string;
-  fill: FillFormat;
-  line: LineFormat;
-  /** null cuando la forma no tiene marco de texto (imagen, línea, tabla, gráfico…). */
+  /** null cuando el tipo de forma no admite relleno (p. ej. una línea, una tabla, un gráfico). */
+  fill: FillFormat | null;
+  /** null cuando el tipo de forma no admite línea (p. ej. una tabla, un gráfico, un grupo). */
+  line: LineFormat | null;
+  /** null cuando la forma no tiene marco de texto (imagen, tabla, gráfico, un marcador de posición
+   *  cuyo contenido no es texto…). */
   font: FontFormat | null;
   size: { width: number; height: number };
 }
@@ -50,8 +53,14 @@ export type ColorTarget = "fill" | "line" | "font";
  * - `fill.type === "Solid"` (con o sin `color`) → si viene `color`, `shape.fill.setSolidColor(color)`;
  *   `transparency`, si viene, se aplica sobre el relleno sólido resultante. Un relleno de tipo
  *   `"Other"` (degradado, patrón, imagen) nunca aparece aquí: no se puede pegar/generar ese tipo.
- * - Dentro de `line`, el campo `visible` debe escribirse en último lugar: en Office.js, alternar la
- *   visibilidad de la línea puede resetear color/peso/estilo, así que esos campos deben aplicarse antes.
+ * - Dentro de `line`: si `visible === true`, se escribe primero (antes que color/peso/estilo/
+ *   transparencia); si `visible === false`, se escribe al final. En Office.js, alternar la
+ *   visibilidad de la línea puede resetear los demás campos, así que el orden importa según la
+ *   dirección del cambio: al mostrar la línea hay que fijar sus demás campos después de hacerla
+ *   visible; al ocultarla hay que fijarlos antes de que desaparezca.
+ * - `fill`/`line`/`font` solo se incluyen cuando la forma los admite; quien aplique el patch recibe
+ *   además la información de capacidades de la forma (ver `FormatCaps` en el adaptador de Office) y
+ *   debe ignorar cualquier parte que la forma no soporte.
  * - Los colores (`fill.color`, `line.color`, `font.color`) ya vienen normalizados ("#RRGGBB" en
  *   mayúsculas) al leer el formato desde Office.js, y los que generan estas funciones también lo están.
  */
@@ -109,22 +118,27 @@ function linePart(line: LineFormat): Partial<LineFormat> | undefined {
   return nonNull(line);
 }
 
-/** Pega las partes indicadas del formato `source` en cada `target` distinto de la fuente. */
+/**
+ * Pega las partes indicadas del formato `source` en cada `target`. No excluye al propio `source`:
+ * los ids de forma pueden repetirse entre diapositivas, y volver a escribir su propio formato es
+ * inofensivo (si nada cambia, no se genera ningún patch para él).
+ */
 export function buildPastePatches(source: ShapeFormat, targets: ShapeFormat[], parts: FormatParts): FormatPatch[] {
-  const fill = parts.fill ? fillPart(source.fill) : undefined;
-  const line = parts.line ? linePart(source.line) : undefined;
+  const fill = parts.fill && source.fill ? fillPart(source.fill) : undefined;
+  const line = parts.line && source.line ? linePart(source.line) : undefined;
   const font = parts.font && source.font ? nonNull(source.font) : undefined;
 
   const patches: FormatPatch[] = [];
   for (const t of targets) {
-    if (t.id === source.id) continue;
+    const includeFill = fill !== undefined && t.fill !== null;
+    const includeLine = line !== undefined && t.line !== null;
     const includeFont = parts.font && !!source.font && !!t.font && font !== undefined;
     const includeSize =
       parts.size && (!near(source.size.width, t.size.width) || !near(source.size.height, t.size.height));
     const patch: FormatPatch = {
       id: t.id,
-      ...(fill !== undefined ? { fill } : {}),
-      ...(line !== undefined ? { line } : {}),
+      ...(includeFill ? { fill } : {}),
+      ...(includeLine ? { line } : {}),
       ...(includeFont ? { font } : {}),
       ...(includeSize ? { width: source.size.width, height: source.size.height } : {}),
     };
@@ -133,28 +147,29 @@ export function buildPastePatches(source: ShapeFormat, targets: ShapeFormat[], p
   return patches;
 }
 
-/** Aplica un color sólido al relleno, la línea o el texto de cada forma. */
+/** Aplica un color sólido al relleno, la línea o el texto de cada forma que admita esa parte. */
 export function colorPatches(targets: ShapeFormat[], target: ColorTarget, color: string): FormatPatch[] {
   const hex = normalizeHex(color);
   if (!hex) return [];
   const patches: FormatPatch[] = [];
   for (const t of targets) {
-    if (target === "fill") patches.push({ id: t.id, fill: { type: "Solid", color: hex } });
-    else if (target === "line") patches.push({ id: t.id, line: { visible: true, color: hex } });
-    else if (t.font) patches.push({ id: t.id, font: { color: hex } });
+    if (target === "fill" && t.fill) patches.push({ id: t.id, fill: { type: "Solid", color: hex } });
+    else if (target === "line" && t.line) patches.push({ id: t.id, line: { visible: true, color: hex } });
+    else if (target === "font" && t.font) patches.push({ id: t.id, font: { color: hex } });
   }
   return patches;
 }
 
-/** Suma `delta` a la transparencia (0..1) de relleno o línea. Se omiten: formas sin relleno sólido
- *  cuando `target` es "fill", líneas invisibles cuando `target` es "line", y, siempre, `delta === 0`. */
+/** Suma `delta` a la transparencia (0..1) de relleno o línea. Se omiten: formas sin esa parte (null)
+ *  o sin relleno sólido cuando `target` es "fill", líneas invisibles cuando `target` es "line", y,
+ *  siempre, `delta === 0`. */
 export function transparencyPatches(targets: ShapeFormat[], target: "fill" | "line", delta: number): FormatPatch[] {
   if (delta === 0) return [];
   const patches: FormatPatch[] = [];
   for (const t of targets) {
-    if (target === "fill" && t.fill.type !== "Solid") continue;
-    if (target === "line" && t.line.visible === false) continue;
-    const current = (target === "fill" ? t.fill.transparency : t.line.transparency) ?? 0;
+    if (target === "fill" && (!t.fill || t.fill.type !== "Solid")) continue;
+    if (target === "line" && (!t.line || t.line.visible === false)) continue;
+    const current = (target === "fill" ? t.fill?.transparency : t.line?.transparency) ?? 0;
     const next = Math.min(1, Math.max(0, Math.round((current + delta) * 100) / 100));
     if (Math.abs(next - current) < EPS) continue;
     patches.push(target === "fill" ? { id: t.id, fill: { transparency: next } } : { id: t.id, line: { transparency: next } });
@@ -162,12 +177,12 @@ export function transparencyPatches(targets: ShapeFormat[], target: "fill" | "li
   return patches;
 }
 
-/** Quita el relleno o la línea de cada forma que aún los tenga. */
+/** Quita el relleno o la línea de cada forma que los admita y aún los tenga. */
 export function clearPatches(targets: ShapeFormat[], target: "fill" | "line"): FormatPatch[] {
   const patches: FormatPatch[] = [];
   for (const t of targets) {
-    if (target === "fill" && t.fill.type !== "NoFill") patches.push({ id: t.id, fill: { type: "NoFill" } });
-    if (target === "line" && t.line.visible !== false) patches.push({ id: t.id, line: { visible: false } });
+    if (target === "fill" && t.fill && t.fill.type !== "NoFill") patches.push({ id: t.id, fill: { type: "NoFill" } });
+    if (target === "line" && t.line && t.line.visible !== false) patches.push({ id: t.id, line: { visible: false } });
   }
   return patches;
 }

@@ -21,13 +21,13 @@ function fmt(id: string, over: Partial<ShapeFormat> = {}): ShapeFormat {
 const ALL = { fill: true, line: true, font: true, size: true };
 
 describe("buildPastePatches", () => {
-  it("copies every part from the source to each target, skipping the source itself", () => {
+  it("copies every part from the source to each target", () => {
     const src = fmt("src");
     const t = fmt("t", {
       fill: { type: "NoFill", color: null, transparency: null },
       size: { width: 10, height: 10 },
     });
-    expect(buildPastePatches(src, [src, t], ALL)).toEqual([
+    expect(buildPastePatches(src, [t], ALL)).toEqual([
       {
         id: "t",
         fill: { type: "Solid", color: "#FF0000", transparency: 0 },
@@ -37,6 +37,22 @@ describe("buildPastePatches", () => {
         height: 50,
       },
     ]);
+  });
+
+  it("does not skip a target sharing the source's id (ids may repeat across slides)", () => {
+    const src = fmt("src");
+    // Mismo id que `src` pero un objeto distinto (p. ej. una forma con el mismo id en otra
+    // diapositiva) con un relleno diferente: antes se descartaba solo por compartir id.
+    const dup = fmt("src", { fill: { type: "NoFill", color: null, transparency: null } });
+    expect(buildPastePatches(src, [dup], { fill: true, line: false, font: false, size: false })).toEqual([
+      { id: "src", fill: { type: "Solid", color: "#FF0000", transparency: 0 } },
+    ]);
+  });
+
+  it("yields no patch for a target with the same id as the source when nothing requested differs", () => {
+    const src = fmt("src");
+    const same = fmt("src");
+    expect(buildPastePatches(src, [same], { fill: false, line: false, font: false, size: true })).toEqual([]);
   });
 
   it("only includes the requested parts", () => {
@@ -61,12 +77,34 @@ describe("buildPastePatches", () => {
     ]);
   });
 
-  it("returns [] when there is no target", () => {
-    expect(buildPastePatches(fmt("src"), [fmt("src")], ALL)).toEqual([]);
-  });
-
   it("returns [] for an empty target list", () => {
     expect(buildPastePatches(fmt("src"), [], ALL)).toEqual([]);
+  });
+
+  it("never pastes fill/line onto a target whose type doesn't support that part (null)", () => {
+    const src = fmt("src");
+    const t = fmt("t", { fill: null, line: null, size: { width: 1, height: 1 } });
+    expect(buildPastePatches(src, [t], ALL)).toEqual([
+      {
+        id: "t",
+        font: { name: "Calibri", size: 12, color: "#111111", bold: false, italic: false, underline: "None" },
+        width: 100,
+        height: 50,
+      },
+    ]);
+  });
+
+  it("does not paste fill/line when the source itself doesn't support them (null)", () => {
+    const src = fmt("src", { fill: null, line: null });
+    const t = fmt("t", { size: { width: 1, height: 1 } });
+    expect(buildPastePatches(src, [t], ALL)).toEqual([
+      {
+        id: "t",
+        font: { name: "Calibri", size: 12, color: "#111111", bold: false, italic: false, underline: "None" },
+        width: 100,
+        height: 50,
+      },
+    ]);
   });
 
   it("pastes a NoFill source as only { type: 'NoFill' }, ignoring any stale color", () => {
@@ -114,6 +152,11 @@ describe("colorPatches", () => {
     expect(colorPatches([fmt("pic", { font: null })], "font", "#00FF00")).toEqual([]);
   });
 
+  it("skips fill or line color for shapes whose type doesn't support that part (null)", () => {
+    expect(colorPatches([fmt("a", { fill: null })], "fill", "#00FF00")).toEqual([]);
+    expect(colorPatches([fmt("a", { line: null })], "line", "#00FF00")).toEqual([]);
+  });
+
   it("returns [] for an invalid color", () => {
     expect(colorPatches([fmt("a")], "fill", "not-a-color")).toEqual([]);
   });
@@ -155,6 +198,11 @@ describe("transparencyPatches", () => {
     expect(transparencyPatches([other], "fill", 0.1)).toEqual([]);
   });
 
+  it("skips shapes whose type doesn't support fill/line at all (null)", () => {
+    expect(transparencyPatches([fmt("a", { fill: null })], "fill", 0.1)).toEqual([]);
+    expect(transparencyPatches([fmt("a", { line: null })], "line", 0.1)).toEqual([]);
+  });
+
   it("returns [] for a negative delta that would not move transparency 0 below 0", () => {
     const a = fmt("a", { fill: { type: "Solid", color: "#FF0000", transparency: 0 } });
     expect(transparencyPatches([a], "fill", -0.1)).toEqual([]);
@@ -191,5 +239,10 @@ describe("clearPatches", () => {
   it("returns [] for an empty target list", () => {
     expect(clearPatches([], "fill")).toEqual([]);
     expect(clearPatches([], "line")).toEqual([]);
+  });
+
+  it("skips shapes whose type doesn't support fill/line at all (null)", () => {
+    expect(clearPatches([fmt("a", { fill: null })], "fill")).toEqual([]);
+    expect(clearPatches([fmt("a", { line: null })], "line")).toEqual([]);
   });
 });

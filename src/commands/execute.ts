@@ -20,10 +20,12 @@ export function resetSlideSizeCache(): void {
 export async function executeCommand(cmd: Command, options: CommandOptions): Promise<CommandResult> {
   return runCommand(cmd.id, async (context): Promise<CommandOutcome> => {
     const withFormat = cmd.kind !== "geometry";
-    const { selection, proxies, formats } = await readSelection(context, {
+    const { selection, proxies, formats, caps } = await readSelection(context, {
       slideSizeCache,
       slideSizeOverride: options.slideSize,
       withFormat,
+      // Los comandos de formato no leen selection.slide: evita pagar su sync.
+      withSlideSize: !withFormat,
     });
     const reason = disabledReason(cmd, selection.shapes.length, getClipboard() !== null);
     if (reason) throw new Error(reason);
@@ -40,14 +42,16 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
         const first = formats[0];
         if (!first) return { changed: 0 };
         setClipboard(first);
-        return { changed: 0, message: "Formato copiado." };
+        const message = first.font === null ? "Formato copiado (sin fuente: la forma no tiene texto)." : "Formato copiado.";
+        return { changed: 0, message };
       }
       case "format": {
         const patches = cmd.compute(formats, options, getClipboard());
         if (patches.length === 0) return { changed: 0 };
         for (const p of patches) {
           const shape = proxies.get(p.id);
-          if (shape) applyFormatPatch(shape, p);
+          const shapeCaps = caps.get(p.id);
+          if (shape && shapeCaps) applyFormatPatch(shape, p, shapeCaps);
         }
         await context.sync();
         return { changed: new Set(patches.map((p) => p.id)).size };

@@ -34,6 +34,10 @@ export interface MockShapeInit {
         underline: string | null;
       }
     | null;
+  /** Contenido de un marcador de posición ("Placeholder"); `undefined` se trata como `null` (texto). */
+  containedType?: string | null;
+  /** `false` simula una forma que Office.js rechaza al tocar `fill`/`lineFormat` (ver `MockContext`). */
+  supportsFormat?: boolean;
 }
 
 export interface MockFill {
@@ -74,9 +78,11 @@ export class MockShape {
   writes: Array<{ prop: string; value: number }> = [];
   formatWrites: Array<{ path: string; value: unknown }> = [];
   fontLoaded = false;
-
-  fill: MockFill;
-  lineFormat: MockLineFormat;
+  fillLoaded = false;
+  lineLoaded = false;
+  supportsFormat: boolean;
+  /** Referencia al contexto que la contiene; la fija `MockContext` al construirse. */
+  ctx?: MockContext;
 
   constructor(init: MockShapeInit) {
     this.id = init.id;
@@ -89,6 +95,7 @@ export class MockShape {
     this.rotation = init.rotation ?? 0;
     this.zOrderPosition = init.zOrderPosition ?? 0;
     this.level = init.level ?? 0;
+    this.supportsFormat = init.supportsFormat ?? true;
     for (const prop of ["left", "top", "width", "height"] as const) {
       let value = this[prop];
       Object.defineProperty(this, prop, {
@@ -102,25 +109,25 @@ export class MockShape {
 
     // --- fill ---
     const fillInit = init.fill ?? DEFAULT_FILL;
-    const fill: MockFill = {
+    const fillImpl: MockFill = {
       type: fillInit.type,
       foregroundColor: fillInit.foregroundColor,
       transparency: fillInit.transparency,
       load: () => {
-        /* no-op: la carga real pasa por collection.load(FORMAT_LOAD_PROPS) */
+        this.fillLoaded = true;
       },
       setSolidColor: (c: string) => {
-        fill.type = "Solid";
-        fill.foregroundColor = c;
+        fillImpl.type = "Solid";
+        fillImpl.foregroundColor = c;
         this.formatWrites.push({ path: "fill.setSolidColor", value: c });
       },
       clear: () => {
-        fill.type = "NoFill";
+        fillImpl.type = "NoFill";
         this.formatWrites.push({ path: "fill.clear", value: null });
       },
     };
     let fillTransparency = fillInit.transparency;
-    Object.defineProperty(fill, "transparency", {
+    Object.defineProperty(fillImpl, "transparency", {
       get: () => fillTransparency,
       set: (v: number | null) => {
         fillTransparency = v;
@@ -128,18 +135,24 @@ export class MockShape {
       },
       enumerable: true,
     });
-    this.fill = fill;
+    Object.defineProperty(this, "fill", {
+      get: () => {
+        if (!this.supportsFormat && this.ctx) this.ctx.invalidTouched = true;
+        return fillImpl;
+      },
+      enumerable: true,
+    });
 
     // --- lineFormat ---
     const lineInit = init.line ?? DEFAULT_LINE;
-    const lineFormat = {
+    const lineFormatImpl = {
       load: () => {
-        /* no-op */
+        this.lineLoaded = true;
       },
     } as MockLineFormat;
     for (const key of ["visible", "color", "weight", "dashStyle", "transparency"] as const) {
       let value: unknown = lineInit[key];
-      Object.defineProperty(lineFormat, key, {
+      Object.defineProperty(lineFormatImpl, key, {
         get: () => value,
         set: (v: unknown) => {
           value = v;
@@ -148,7 +161,25 @@ export class MockShape {
         enumerable: true,
       });
     }
-    this.lineFormat = lineFormat;
+    Object.defineProperty(this, "lineFormat", {
+      get: () => {
+        if (!this.supportsFormat && this.ctx) this.ctx.invalidTouched = true;
+        return lineFormatImpl;
+      },
+      enumerable: true,
+    });
+
+    // --- placeholderFormat ---
+    const placeholderFormatImpl = {
+      containedType: init.containedType ?? null,
+      load: () => {
+        /* no-op: el valor ya está disponible en el mock */
+      },
+    };
+    Object.defineProperty(this, "placeholderFormat", {
+      get: () => placeholderFormatImpl,
+      enumerable: true,
+    });
 
     // --- textFrame / font ---
     if (init.font !== null) {
@@ -175,9 +206,13 @@ export class MockShape {
         enumerable: true,
       });
     } else {
+      // Office.js no lanza de forma síncrona al leer la propiedad: el error real aparece recién en
+      // el siguiente sync(). El mock imita eso marcando el contexto en vez de lanzar aquí.
+      const dummyFont = { load: () => {} } as MockFont;
       Object.defineProperty(this, "textFrame", {
         get: () => {
-          throw new Error("InvalidArgument");
+          if (this.ctx) this.ctx.invalidTouched = true;
+          return { textRange: { font: dummyFont } };
         },
         enumerable: true,
       });
@@ -191,7 +226,12 @@ export class MockContext {
   loadedProps?: string;
   /** Opciones pasadas al último `getImageAsBase64()`; queda `undefined` si nunca se llamó. */
   imageOptions?: Record<string, unknown>;
-  constructor(public shapes: MockShape[], public slidePng = "") {}
+  /** Se pone a true si se accede a `fill`/`lineFormat`/`textFrame` de una forma que no lo admite;
+   *  el siguiente `sync()` lo traduce en un rechazo y lo limpia. */
+  invalidTouched = false;
+  constructor(public shapes: MockShape[], public slidePng = "") {
+    for (const s of shapes) s.ctx = this;
+  }
   presentation = {
     getSelectedShapes: () => ({
       items: this.shapes,
@@ -210,5 +250,9 @@ export class MockContext {
   };
   async sync(): Promise<void> {
     this.syncCount += 1;
+    if (this.invalidTouched) {
+      this.invalidTouched = false;
+      throw { code: "InvalidArgument", message: "La forma no admite esta propiedad." };
+    }
   }
 }

@@ -38,6 +38,18 @@ export interface MockShapeInit {
   containedType?: string | null;
   /** `false` simula una forma que Office.js rechaza al tocar `fill`/`lineFormat` (ver `MockContext`). */
   supportsFormat?: boolean;
+  /** Propiedades de `textFrame`/`textRange`/`paragraphFormat` para formas con marco de texto. */
+  textProps?: {
+    text: string;
+    horizontalAlignment: string | null;
+    verticalAlignment: string;
+    autoSizeSetting: string;
+    wordWrap: boolean;
+    leftMargin: number;
+    rightMargin: number;
+    topMargin: number;
+    bottomMargin: number;
+  };
 }
 
 export interface MockFill {
@@ -63,6 +75,17 @@ export type MockFont = Record<string, unknown> & { load: (props: string) => void
 const DEFAULT_FILL = { type: "Solid", foregroundColor: "#FF0000", transparency: 0 };
 const DEFAULT_LINE = { visible: true, color: "#000000", weight: 1, dashStyle: "Solid", transparency: 0 };
 const DEFAULT_FONT = { name: "Calibri", size: 18, color: "#000000", bold: false, italic: false, underline: "None" };
+const DEFAULT_TEXT_PROPS = {
+  text: "hola mundo",
+  horizontalAlignment: "Left" as string | null,
+  verticalAlignment: "Top",
+  autoSizeSetting: "AutoSizeNone",
+  wordWrap: true,
+  leftMargin: 7.2,
+  rightMargin: 7.2,
+  topMargin: 3.6,
+  bottomMargin: 3.6,
+};
 
 export class MockShape {
   id: string;
@@ -80,6 +103,8 @@ export class MockShape {
   fontLoaded = false;
   fillLoaded = false;
   lineLoaded = false;
+  textFrameLoaded = false;
+  textRangeLoaded = false;
   supportsFormat: boolean;
   /** Referencia al contexto que la contiene; la fija `MockContext` al construirse. */
   ctx?: MockContext;
@@ -200,7 +225,57 @@ export class MockShape {
           enumerable: true,
         });
       }
-      const textFrame = { textRange: { font } };
+      const textInit = { ...DEFAULT_TEXT_PROPS, ...init.textProps };
+
+      const paragraphFormat = {
+        load: (_props: string) => {
+          /* no-op: el valor ya está disponible en el mock */
+        },
+      } as { horizontalAlignment: string | null; load: (props: string) => void };
+      let horizontalAlignment: string | null = textInit.horizontalAlignment;
+      Object.defineProperty(paragraphFormat, "horizontalAlignment", {
+        get: () => horizontalAlignment,
+        set: (v: string | null) => {
+          horizontalAlignment = v;
+          this.formatWrites.push({ path: "paragraphFormat.horizontalAlignment", value: v });
+        },
+        enumerable: true,
+      });
+
+      let textValue = textInit.text;
+      const textRange = {
+        font,
+        paragraphFormat,
+        load: (_props: string) => {
+          this.textRangeLoaded = true;
+        },
+      } as { text: string; font: MockFont; paragraphFormat: typeof paragraphFormat; load: (props: string) => void };
+      Object.defineProperty(textRange, "text", {
+        get: () => textValue,
+        set: (v: string) => {
+          textValue = v;
+          this.formatWrites.push({ path: "textRange.text", value: v });
+        },
+        enumerable: true,
+      });
+
+      const textFrame = {
+        textRange,
+        load: (_props: string) => {
+          this.textFrameLoaded = true;
+        },
+      } as Record<string, unknown> & { textRange: typeof textRange; load: (props: string) => void };
+      for (const key of ["verticalAlignment", "autoSizeSetting", "wordWrap", "leftMargin", "rightMargin", "topMargin", "bottomMargin"] as const) {
+        let value: unknown = textInit[key];
+        Object.defineProperty(textFrame, key, {
+          get: () => value,
+          set: (v: unknown) => {
+            value = v;
+            this.formatWrites.push({ path: `textFrame.${key}`, value: v });
+          },
+          enumerable: true,
+        });
+      }
       Object.defineProperty(this, "textFrame", {
         get: () => textFrame,
         enumerable: true,

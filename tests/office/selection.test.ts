@@ -153,6 +153,30 @@ describe("readSelection", () => {
     expect(formats[0]?.font?.name).toBe("Arial");
   });
 
+  it("loads and maps text for text-capable shapes only, with the same two syncs as withFormat", async () => {
+    const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 10 });
+    const pic = new MockShape({ id: "p", type: "Image", left: 0, top: 0, width: 10, height: 10, font: null });
+    const ctx = new MockContext([box, pic], "bad-png");
+    const { texts } = await readSelection(ctx as never, { slideSizeCache: new Map(), withText: true, withSlideSize: false });
+    expect(texts).toEqual([
+      { id: "a", text: "hola mundo", fontSize: 18, horizontalAlignment: "Left", verticalAlignment: "Top",
+        autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } },
+    ]);
+    expect(ctx.syncCount).toBe(2);
+  });
+
+  it("does a third sync for a placeholder with no decided content yet, loading its text too", async () => {
+    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: null });
+    const ctx = new MockContext([ph], "bad-png");
+    const { texts } = await readSelection(ctx as never, { slideSizeCache: new Map(), withText: true, withSlideSize: false });
+    expect(ctx.syncCount).toBe(3);
+    expect(ph.textFrameLoaded && ph.textRangeLoaded).toBe(true);
+    expect(texts).toEqual([
+      { id: "ph", text: "hola mundo", fontSize: 18, horizontalAlignment: "Left", verticalAlignment: "Top",
+        autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } },
+    ]);
+  });
+
   it("skips getSlideSize entirely when withSlideSize is false, using the default placeholder size", async () => {
     const ctx = new MockContext([], "bad-png");
     const { selection } = await readSelection(ctx as never, { slideSizeCache: new Map(), withSlideSize: false });

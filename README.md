@@ -1,7 +1,7 @@
 # Slide Tools
 
-Panel lateral para PowerPoint (Mac y Windows) con herramientas de alineación, tamaño, formato y texto,
-inspirado en el flujo de trabajo de los paneles de productividad para presentaciones.
+Panel lateral para PowerPoint (Mac y Windows) con herramientas de alineación, tamaño, formato, texto e
+inserción de elementos, inspirado en el flujo de trabajo de los paneles de productividad para presentaciones.
 
 Autor: Victor Lopez Rapado · Add-in web (Office.js) · Hospedado en GitHub Pages.
 
@@ -106,6 +106,33 @@ diapositiva activa, cada una con el título y la lista completa de secciones, re
 con el color de énfasis del tema (o un azul por defecto sin PowerPointApi 1.10). El título y las
 secciones se recuerdan entre sesiones.
 
+## Comandos (Fase 8)
+
+**Insert:** inserta elementos ya maquetados en la diapositiva activa y los deja seleccionados para
+moverlos o darles formato con el resto del panel:
+
+- **N columnas de texto:** N cuadros de texto ("Texto") de igual ancho repartidos en el área de
+  contenido (por debajo del título).
+- **Rejilla 2×2:** cuatro cuadros de texto en dos filas y dos columnas.
+- **Cadena de chevrones:** N chevrones "Paso 1..N" en fila, con el color de énfasis del tema (o un
+  azul por defecto sin PowerPointApi 1.10), texto blanco en negrita y sin contorno.
+- **Círculos numerados:** N círculos "1..N" en fila, con el mismo estilo que los chevrones.
+- **Sticker:** etiqueta redondeada en la esquina superior derecha con el texto y el color de relleno
+  configurados en la propia sección (texto en negrita, 12 pt; si el texto está vacío se usa
+  "BORRADOR").
+- **Línea recta** y **conector en ángulo**, **rectángulo**, **rectángulo redondeado**, **elipse** y
+  **cuadro de texto:** una forma centrada en la diapositiva con el estilo por defecto del tema.
+
+Los campos **N** (de 1 a 12; un valor mayor se acota a 12), **Sticker** (texto, hasta 30 caracteres)
+y **Color** de la sección se recuerdan entre sesiones. Cada inserción es un único paso de deshacer.
+
+**Text (estilos rápidos):** negrita, cursiva, subrayado y tachado como conmutadores: si todas las
+formas seleccionadas con valor conocido ya tienen el estilo, se quita; si no, se aplica a todas.
+Tamaños predefinidos de título (24 pt), subtítulo (18 pt), cuerpo (14 pt) y pequeño (11 pt). Viñetas
+(conmutar, misma regla "todas activas → desactivar, si no → activar"). Aumentar / reducir sangría
+(un nivel, 0..8) requiere PowerPoint reciente (PowerPointApi 1.10); en versiones anteriores esos dos
+botones no aparecen.
+
 ## Limitaciones conocidas
 
 - Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
@@ -138,6 +165,9 @@ secciones se recuerdan entre sesiones.
   del patrón de diapositivas (layout) de la presentación.
 - "Crear agenda" requiere que el diseño en blanco exista en el patrón principal; si no, se eliminan
   los marcadores de la diapositiva nueva.
+- Los stickers y las etiquetas de Insert son formas nativas con texto (no hay biblioteca de imágenes
+  ni iconos); Office.js tampoco expone estilos de línea más allá de recta / en ángulo (sin puntas de
+  flecha ni curvas) ni el volteo horizontal / vertical de formas.
 
 ## Desarrollo
 
@@ -164,7 +194,8 @@ declarativos), `src/taskpane` (UI). Diseño completo en `docs/superpowers/specs/
 ## Hoja de ruta
 
 Fase 2 Format + Color (hecho) · Fase 3 Text (hecho) · Fase 4 Navigation & Expert Tools (hecho) ·
-Fase 5 Check + Presentation (hecho) · Fase 6 Wizards (hecho). Todas las fases planeadas están completas.
+Fase 5 Check + Presentation (hecho) · Fase 6 Wizards (hecho) · Fase 7 Robustez y tests de UI (hecho) ·
+Fase 8 Insert + estilos rápidos de texto (hecho). Todas las fases planeadas están completas.
 
 ## Prueba manual
 
@@ -212,6 +243,16 @@ Tras instalar el add-in, en una presentación de prueba:
    y pulsa "Crear agenda": deben insertarse 5 diapositivas justo después de la activa, cada una con
    el título, la lista completa de secciones y su propia sección resaltada con el color de énfasis
    del tema; cierra y vuelve a abrir el panel y comprueba que el título y las secciones siguen ahí.
+
+10. **Insert/Text (Fase 8):** en Insert pon N = 4 y pulsa "Insertar cadena de chevrones": deben
+    aparecer 4 chevrones "Paso 1".."Paso 4" en fila, ya seleccionados (Cmd+Z los quita de una vez).
+    Escribe un texto propio en "Sticker", elige un color y pulsa "Insertar sticker": la etiqueta
+    aparece en la esquina superior derecha con ese texto y color. "Insertar cuadro de texto" crea
+    un cuadro "Texto" centrado y seleccionado. En Text, selecciona dos cuadros, uno en negrita y
+    otro no, y pulsa "Negrita (conmutar)": los dos quedan en negrita; púlsalo otra vez y ninguno lo
+    está. "Tamaño título (24 pt)" pone el texto a 24 pt; "Viñetas (conmutar)" quita las viñetas de
+    un cuadro con lista y las pone en uno sin ellas. En PowerPoint sin API 1.10, los botones de
+    sangría no aparecen.
 
 ## Créditos
 

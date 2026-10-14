@@ -8,7 +8,7 @@ import {
 import type { SectionContext } from "./types";
 
 const SLIDE_SIZE_LABELS: Record<SlideSizePreset, string> = {
-  auto: "Auto",
+  auto: "Auto (exacto en PowerPoint reciente)",
   "16x9": "16:9 (960×540)",
   "16x9-legacy": "16:9 clásico (720×405)",
   "4x3": "4:3 (720×540)",

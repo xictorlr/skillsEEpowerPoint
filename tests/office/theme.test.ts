@@ -68,6 +68,15 @@ describe("getThemeColors", () => {
     expect(result).toHaveLength(THEME_COLOR_NAMES.length - 1);
   });
 
+  it("drops only the color whose value is undefined, keeping the other 11", async () => {
+    stubOffice1_10();
+    const { Accent3: _omitted, ...partial } = THEME_COLORS;
+    const ctx = new MockContext([], "", { themeColors: partial });
+    const result = await getThemeColors(ctx as never);
+    expect(result?.find((c) => c.name === "Accent3")).toBeUndefined();
+    expect(result).toHaveLength(THEME_COLOR_NAMES.length - 1);
+  });
+
   it("returns null if reading the theme colors fails (e.g. no slide selected)", async () => {
     stubOffice1_10();
     const ctx = new MockContext([], "", { themeColors: THEME_COLORS });

@@ -26,21 +26,23 @@ export interface ThemeColor {
 /**
  * Colores del tema de la diapositiva seleccionada (requiere PowerPointApi 1.10). Devuelve `null`
  * si la API no está disponible, o si falla la lectura (p. ej. ninguna diapositiva seleccionada).
- * Las entradas cuyo valor no se puede normalizar a "#RRGGBB" se descartan. Hace un único sync.
+ * Las entradas cuyo valor no sea una cadena normalizable a "#RRGGBB" (incluyendo `null`/`undefined`)
+ * se descartan. Hace un único sync.
  */
 export async function getThemeColors(context: PowerPoint.RequestContext): Promise<ThemeColor[] | null> {
   if (!supportsApi("1.10")) return null;
   try {
     const slide = context.presentation.getSelectedSlides().getItemAt(0);
     const scheme = slide.themeColorScheme;
-    const results = new Map(THEME_COLOR_NAMES.map((name) => [name, scheme.getThemeColor(name)] as const));
+    const results = THEME_COLOR_NAMES.map((name) => scheme.getThemeColor(name));
     await context.sync();
 
     const colors: ThemeColor[] = [];
-    for (const name of THEME_COLOR_NAMES) {
-      const hex = normalizeHex(results.get(name)!.value);
+    THEME_COLOR_NAMES.forEach((name, i) => {
+      const value = results[i]?.value;
+      const hex = typeof value === "string" ? normalizeHex(value) : null;
       if (hex) colors.push({ name, hex });
-    }
+    });
     return colors;
   } catch {
     return null;

@@ -250,4 +250,13 @@ describe("getSlideSize with PowerPointApi 1.10", () => {
     expect(size).toEqual({ width: 540, height: 540 });
     expect(ctx.imageOptions).toEqual({ height: 540 });
   });
+
+  it("pageSetup sync rejects → falls back to PNG", async () => {
+    stubOffice1_10();
+    const ctx = new MockContext([], PNG_1x1, { pageSetup: { slideWidth: 720, slideHeight: 405 } });
+    ctx.invalidTouched = true; // hace que el primer sync() (el de pageSetup) lance
+    const size = await getSlideSize(ctx as never, new Map());
+    expect(size).toEqual({ width: 540, height: 540 }); // PNG 1x1 → aspecto 1:1
+    expect(ctx.syncCount).toBe(2); // sync de pageSetup (rechazado) + sync del render PNG
+  });
 });

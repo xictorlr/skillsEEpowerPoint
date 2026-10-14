@@ -19,9 +19,10 @@ let warned = false;
  * sesión. El aviso por consola de ese fallback sí se limita a una sola vez por sesión para no
  * inundar la consola en comandos repetidos.
  *
- * Limitación conocida: se asume alto de diapositiva de 540 pt (ver `slideSizeFromAspect`). Para
- * presentaciones con otro alto (16:9 heredado a 720x405 pt, tamaños personalizados, etc.), pasa
- * `override` con el tamaño real; se devuelve tal cual, sin renderizar ni tocar la caché.
+ * Sin PowerPointApi 1.10, limitación conocida: se asume alto de diapositiva de 540 pt (ver
+ * `slideSizeFromAspect`). Para presentaciones con otro alto (16:9 heredado a 720x405 pt, tamaños
+ * personalizados, etc.), pasa `override` con el tamaño real; se devuelve tal cual, sin renderizar
+ * ni tocar la caché.
  *
  * Si el host soporta PowerPointApi 1.10 (ver `supportsApi`), se usa `presentation.pageSetup` para
  * obtener el tamaño exacto (en puntos) de un solo sync, sin recurrir al render PNG. Si esos valores

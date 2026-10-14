@@ -26,9 +26,10 @@ export function sanitizeMatrix(input: unknown): MatrixOptions {
 }
 
 /**
- * Tamaños de diapositiva predefinidos. `auto` deja la decisión a la detección automática (que asume
- * 540pt de alto); el resto fuerza un tamaño explícito — útil para mazos 16:9 "clásicos" (720x405) u
- * otros formatos donde esa heurística no aplica. "4x3" y "letter" comparten medidas (720x540): se
+ * Tamaños de diapositiva predefinidos. `auto` deja la decisión a la detección automática: es exacta
+ * (vía `pageSetup`) en hosts con PowerPointApi 1.10; en el resto, asume 540pt de alto (heurística
+ * PNG). El resto de entradas fuerza un tamaño explícito — útil para mazos 16:9 "clásicos" (720x405)
+ * u otros formatos donde esa heurística no aplica. "4x3" y "letter" comparten medidas (720x540): se
  * mantienen como entradas separadas porque la etiqueta que ve el usuario es distinta.
  */
 export const SLIDE_SIZE_PRESETS = {

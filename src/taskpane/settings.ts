@@ -1,6 +1,7 @@
 import {
   DEFAULT_PERSISTED,
   sanitizeColorTarget,
+  sanitizeFontSizeStep,
   sanitizeMatrix,
   sanitizePasteParts,
   sanitizeRecentColors,
@@ -24,6 +25,7 @@ export function loadPersistedOptions(): PersistedOptions {
       recentColors?: unknown;
       colorTarget?: unknown;
       pasteParts?: unknown;
+      fontSizeStep?: unknown;
     };
     return {
       matrix: sanitizeMatrix(parsed.matrix),
@@ -31,6 +33,7 @@ export function loadPersistedOptions(): PersistedOptions {
       recentColors: sanitizeRecentColors(parsed.recentColors),
       colorTarget: sanitizeColorTarget(parsed.colorTarget),
       pasteParts: sanitizePasteParts(parsed.pasteParts),
+      fontSizeStep: sanitizeFontSizeStep(parsed.fontSizeStep),
     };
   } catch {
     return DEFAULT_PERSISTED;

@@ -79,14 +79,27 @@ export function sanitizePasteParts(input: unknown): FormatParts {
   return { fill: b(o.fill), line: b(o.line), font: b(o.font), size: b(o.size) };
 }
 
+/** Paso por defecto (en puntos) al aumentar/reducir el tamaño de fuente. */
+export const DEFAULT_FONT_SIZE_STEP = 1;
+
+/** Sanea un valor arbitrario a un paso de tamaño de fuente válido: número finito entre 0.5 y 20,
+ *  redondeado al 0.5 más cercano; si no es un número finito en ese rango, usa el valor por defecto. */
+export function sanitizeFontSizeStep(input: unknown): number {
+  if (typeof input !== "number" || !Number.isFinite(input) || input < 0.5 || input > 20) {
+    return DEFAULT_FONT_SIZE_STEP;
+  }
+  return Math.round(input * 2) / 2;
+}
+
 /** Forma persistida en localStorage (ver settings.ts): matriz, preset de tamaño de diapositiva,
- *  colores recientes, destino de color y partes a pegar por defecto. */
+ *  colores recientes, destino de color, partes a pegar por defecto y paso de tamaño de fuente. */
 export interface PersistedOptions {
   matrix: MatrixOptions;
   slideSizePreset: SlideSizePreset;
   recentColors: string[];
   colorTarget: ColorTarget;
   pasteParts: FormatParts;
+  fontSizeStep: number;
 }
 
 export const DEFAULT_PERSISTED: PersistedOptions = {
@@ -95,6 +108,7 @@ export const DEFAULT_PERSISTED: PersistedOptions = {
   recentColors: [],
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
+  fontSizeStep: DEFAULT_FONT_SIZE_STEP,
 };
 
 /** Convierte las opciones persistidas (ya saneadas) en las CommandOptions que consumen los comandos.
@@ -105,7 +119,6 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     slideSize: SLIDE_SIZE_PRESETS[persisted.slideSizePreset],
     colorTarget: persisted.colorTarget,
     pasteParts: persisted.pasteParts,
-    // TODO Task 4: persistir el paso de tamaño de fuente en PersistedOptions.
-    fontSizeStep: 1,
+    fontSizeStep: persisted.fontSizeStep,
   };
 }

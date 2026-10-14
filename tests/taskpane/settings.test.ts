@@ -4,6 +4,7 @@ import {
   MAX_RECENT_COLORS,
   SLIDE_SIZE_PRESETS,
   sanitizeColorTarget,
+  sanitizeFontSizeStep,
   sanitizeMatrix,
   sanitizePasteParts,
   sanitizeRecentColors,
@@ -73,6 +74,7 @@ const BASE_PERSISTED = {
   recentColors: [] as string[],
   colorTarget: "fill" as const,
   pasteParts: { fill: true, line: true, font: true, size: true },
+  fontSizeStep: 1,
 };
 
 describe("toCommandOptions", () => {
@@ -104,6 +106,7 @@ describe("toCommandOptions", () => {
       recentColors: [],
       colorTarget: "line",
       pasteParts,
+      fontSizeStep: 1,
     });
     expect(result.colorTarget).toBe("line");
     expect(result.pasteParts).toEqual(pasteParts);
@@ -116,8 +119,14 @@ describe("toCommandOptions", () => {
       recentColors: [],
       colorTarget: "fill",
       pasteParts: { fill: true, line: true, font: true, size: true },
+      fontSizeStep: 1,
     });
     expect(result.color).toBeUndefined();
+  });
+
+  it("includes the fontSizeStep", () => {
+    const result = toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "auto", ...BASE_PERSISTED, fontSizeStep: 2.5 });
+    expect(result.fontSizeStep).toBe(2.5);
   });
 });
 
@@ -193,5 +202,35 @@ describe("sanitizePasteParts", () => {
       font: true,
       size: true,
     });
+  });
+});
+
+describe("sanitizeFontSizeStep", () => {
+  it("returns 1 for garbage input", () => {
+    expect(sanitizeFontSizeStep(undefined)).toBe(1);
+    expect(sanitizeFontSizeStep(null)).toBe(1);
+    expect(sanitizeFontSizeStep("not-a-number")).toBe(1);
+    expect(sanitizeFontSizeStep(NaN)).toBe(1);
+  });
+
+  it("returns 1 for values outside [0.5, 20]", () => {
+    expect(sanitizeFontSizeStep(0)).toBe(1);
+    expect(sanitizeFontSizeStep(0.4)).toBe(1);
+    expect(sanitizeFontSizeStep(20.1)).toBe(1);
+    expect(sanitizeFontSizeStep(-3)).toBe(1);
+    expect(sanitizeFontSizeStep(Infinity)).toBe(1);
+  });
+
+  it("passes through valid values unchanged", () => {
+    expect(sanitizeFontSizeStep(0.5)).toBe(0.5);
+    expect(sanitizeFontSizeStep(2)).toBe(2);
+    expect(sanitizeFontSizeStep(20)).toBe(20);
+  });
+
+  it("rounds to the nearest 0.5", () => {
+    expect(sanitizeFontSizeStep(1.2)).toBe(1);
+    expect(sanitizeFontSizeStep(1.3)).toBe(1.5);
+    expect(sanitizeFontSizeStep(1.74)).toBe(1.5);
+    expect(sanitizeFontSizeStep(1.76)).toBe(2);
   });
 });

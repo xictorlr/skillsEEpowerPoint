@@ -1,4 +1,10 @@
-import { SLIDE_SIZE_PRESETS, sanitizeMatrix, sanitizeSlideSizePreset, type SlideSizePreset } from "../sanitize";
+import {
+  SLIDE_SIZE_PRESETS,
+  sanitizeFontSizeStep,
+  sanitizeMatrix,
+  sanitizeSlideSizePreset,
+  type SlideSizePreset,
+} from "../sanitize";
 import type { SectionContext } from "./types";
 
 const SLIDE_SIZE_LABELS: Record<SlideSizePreset, string> = {
@@ -76,7 +82,31 @@ export class SettingsSection {
       field.appendChild(input);
       return field;
     };
-    wrap.append(make("Cols", "columns", 1, "1"), make("Gap X", "gapX", 0), make("Gap Y", "gapY", 0));
+    wrap.append(
+      make("Cols", "columns", 1, "1"),
+      make("Gap X", "gapX", 0),
+      make("Gap Y", "gapY", 0),
+      this.fontSizeStepField(),
+    );
     return wrap;
+  }
+
+  private fontSizeStepField(): HTMLElement {
+    const field = document.createElement("label");
+    field.className = "st-field";
+    field.append("Paso de fuente");
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = "0.5";
+    input.min = "0.5";
+    input.max = "20";
+    input.value = String(this.ctx.persisted.fontSizeStep);
+    input.addEventListener("change", () => {
+      const fontSizeStep = sanitizeFontSizeStep(Number(input.value));
+      input.value = String(fontSizeStep);
+      this.ctx.updatePersisted({ fontSizeStep });
+    });
+    field.appendChild(input);
+    return field;
   }
 }

@@ -51,6 +51,13 @@ elegido y los colores recientes también se recuerdan entre sesiones.
 
 Nota: la paleta es fija porque Office.js no expone los colores del tema de la presentación.
 
+## Comandos (Fase 3)
+
+**Text:** MAYÚSCULAS / minúsculas / Tipo oración / Tipo Título; tamaño de fuente ± (paso configurable en
+Ajustes); alineación de párrafo izquierda / centro / derecha / justificado; texto arriba / medio / abajo;
+márgenes internos a cero / estándar; autoajuste: sin autoajuste / reducir texto al desbordar / ajustar
+forma al texto; ajustar texto a la forma sí/no; limpiar texto.
+
 ## Limitaciones conocidas
 
 - Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
@@ -63,6 +70,11 @@ Nota: la paleta es fija porque Office.js no expone los colores del tema de la pr
 - Los comandos actúan sobre las formas devueltas por la selección; dentro de un grupo se trata el grupo como una forma.
 - El formato copiado ("Copiar formato") vive en memoria mientras el panel está abierto; se pierde al cerrarlo.
 - La transparencia (+10 % / −10 %) no aplica cuando el destino de color es "Texto".
+- Cambiar mayúsculas y limpiar texto reescriben el texto por sub-rangos (palabra a palabra cuando la
+  longitud no cambia) para conservar negritas y viñetas; cuando la longitud de una línea cambia o se
+  eliminan párrafos vacíos, esa línea o el cuadro completo pierden formatos mixtos.
+- "Tamaño ±" omite cuadros con tamaños de fuente mixtos.
+- Las siglas pierden las mayúsculas con Tipo oración / Tipo Título.
 
 ## Desarrollo
 
@@ -88,8 +100,8 @@ declarativos), `src/taskpane` (UI). Diseño completo en `docs/superpowers/specs/
 
 ## Hoja de ruta
 
-Fase 2 Format + Color (hecho) · Fase 3 Text · Fase 4 Navigation & Expert Tools · Fase 5 Check + Presentation ·
-Fase 6 Wizards.
+Fase 2 Format + Color (hecho) · Fase 3 Text (hecho) · Fase 4 Navigation & Expert Tools · Fase 5 Check +
+Presentation · Fase 6 Wizards.
 
 ## Prueba manual
 
@@ -104,3 +116,6 @@ Tras instalar el add-in, en una presentación de prueba:
    y "Sin línea" funcionan; la transparencia se deshabilita con destino texto.
 5. **Formas especiales:** selecciona a la vez un grupo, una tabla, una línea y un marcador de imagen, y ejecuta
    "Copiar formato" y una muestra de color: el panel debe mostrar un aviso o aplicar el cambio, nunca quedarse colgado.
+6. **Text:** en un cuadro con viñetas y una primera línea en negrita, aplica "MAYÚSCULAS" y comprueba que las
+   viñetas y la negrita se conservan; pon los márgenes internos a cero y verifica que el texto queda pegado
+   al borde; aplica "ajustar forma al texto" y comprueba que la forma crece o se encoge según el contenido.

@@ -33,4 +33,8 @@ describe("pushRecent", () => {
   it("ignores invalid colors", () => {
     expect(pushRecent(["#111111"], "nope", 8)).toEqual(["#111111"]);
   });
+  it("normalizes a lowercase stored entry before de-duplicating", () => {
+    expect(pushRecent(["#aaaaaa", "#bbbbbb"], "#cccccc", 8)).toEqual(["#CCCCCC", "#AAAAAA", "#BBBBBB"]);
+    expect(pushRecent(["#aaaaaa"], "#AAAAAA", 8)).toEqual(["#AAAAAA"]);
+  });
 });

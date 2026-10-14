@@ -33,4 +33,4 @@ body { margin: 0; background: var(--st-bg); }
 .st-btn svg { width: 18px; height: 18px; }
 .st-divider { border: 0; border-top: 1px solid var(--st-border); margin: 6px 10px; }
 .st-field { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: var(--st-muted); }
-.st-field input { width: 36px; font: inherit; padding: 2px 4px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); }
+.st-field input { width: 46px; font: inherit; padding: 2px 4px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); }

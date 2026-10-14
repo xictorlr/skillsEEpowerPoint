@@ -1,5 +1,6 @@
 /** Iconos SVG 16x16 con trazo currentColor. Las barras rojas marcan la referencia, como en EE. */
-const S = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"';
+const S =
+  'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" aria-hidden="true" focusable="false"';
 const REF = 'stroke="#d33"';
 
 const box = (x: number, y: number, w: number, h: number) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" fill-opacity=".25"/>`;

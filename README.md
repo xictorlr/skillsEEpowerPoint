@@ -41,9 +41,9 @@ si tu presentación usa un alto distinto, como el 16:9 clásico de 720×405, el�
 
 ## Comandos (Fase 2)
 
-**Format:** copiar formato (de la primera forma seleccionada) y pegar formato en el resto, ya sea todo junto
+**Format:** copiar formato (de la primera forma seleccionada) y pegarlo en las formas seleccionadas (incluso en otra diapositiva), ya sea todo junto
 (según las casillas elegidas) o solo relleno / línea / fuente / tamaño. Las casillas "Relleno", "Línea",
-"Fuente" y "Tamaño" controlan qué partes copia "Pegar formato" y se recuerdan entre sesiones.
+"Fuente" y "Tamaño" controlan qué partes pega "Pegar formato" y se recuerdan entre sesiones.
 
 **Color:** destino del color (relleno, línea o texto), paleta neutra de 16 colores, hasta 8 colores recientes
 y un selector de color personalizado; además "Sin relleno", "Sin línea" y transparencia ±10 %. El destino
@@ -52,6 +52,9 @@ elegido y los colores recientes también se recuerdan entre sesiones.
 Nota: la paleta es fija porque Office.js no expone los colores del tema de la presentación.
 
 ## Limitaciones conocidas
+
+- Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
+  fuentes dentro de un mismo texto) se omiten campo a campo; la transparencia solo se ajusta en rellenos sólidos.
 
 - Office.js no expone el tamaño de la diapositiva: en Auto se deduce de la proporción asumiendo 540 pt de alto,
   y el valor se guarda mientras el panel esté abierto. Si cambias Diseño > Tamaño de diapositiva, elige el
@@ -87,3 +90,17 @@ declarativos), `src/taskpane` (UI). Diseño completo en `docs/superpowers/specs/
 
 Fase 2 Format + Color (hecho) · Fase 3 Text · Fase 4 Navigation & Expert Tools · Fase 5 Check + Presentation ·
 Fase 6 Wizards.
+
+## Prueba manual
+
+Tras instalar el add-in, en una presentación de prueba:
+
+1. **Alignment/Size:** selecciona 3 rectángulos de distinto tamaño; "Alinear a la izquierda" los alinea al primero
+   seleccionado y "Distribuir horizontalmente" los reparte con separación uniforme. Cmd+Z deshace cada acción de una vez.
+2. **Diapositiva:** con una forma, "Centrar en la diapositiva" la centra tanto en 16:9 como en 4:3.
+3. **Format:** copia el formato de un cuadro de texto con relleno y pégalo sobre otra forma; desmarca "Tamaño"
+   y comprueba que el tamaño no cambia. Con una imagen seleccionada junto a un texto, pegar fuente no da error.
+4. **Color:** cambia el destino (relleno, línea, texto), pulsa una muestra y un color personalizado; "Sin relleno"
+   y "Sin línea" funcionan; la transparencia se deshabilita con destino texto.
+5. **Formas especiales:** selecciona a la vez un grupo, una tabla, una línea y un marcador de imagen, y ejecuta
+   "Copiar formato" y una muestra de color: el panel debe mostrar un aviso o aplicar el cambio, nunca quedarse colgado.

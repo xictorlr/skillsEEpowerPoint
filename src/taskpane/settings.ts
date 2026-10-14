@@ -5,6 +5,7 @@ import {
   sanitizeMatrix,
   sanitizePasteParts,
   sanitizeRecentColors,
+  sanitizeRenamePrefix,
   sanitizeSlideSizePreset,
   type PersistedOptions,
 } from "./sanitize";
@@ -26,6 +27,7 @@ export function loadPersistedOptions(): PersistedOptions {
       colorTarget?: unknown;
       pasteParts?: unknown;
       fontSizeStep?: unknown;
+      renamePrefix?: unknown;
     };
     return {
       matrix: sanitizeMatrix(parsed.matrix),
@@ -34,6 +36,7 @@ export function loadPersistedOptions(): PersistedOptions {
       colorTarget: sanitizeColorTarget(parsed.colorTarget),
       pasteParts: sanitizePasteParts(parsed.pasteParts),
       fontSizeStep: sanitizeFontSizeStep(parsed.fontSizeStep),
+      renamePrefix: sanitizeRenamePrefix(parsed.renamePrefix),
     };
   } catch {
     return DEFAULT_PERSISTED;

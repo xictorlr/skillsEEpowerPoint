@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MATRIX,
   DEFAULT_PERSISTED,
+  DEFAULT_RENAME_PREFIX,
   MAX_RECENT_COLORS,
+  MAX_RENAME_PREFIX_LENGTH,
   SLIDE_SIZE_PRESETS,
   sanitizeColorTarget,
   sanitizeFontSizeStep,
   sanitizeMatrix,
   sanitizePasteParts,
   sanitizeRecentColors,
+  sanitizeRenamePrefix,
   sanitizeSlideSizePreset,
   toCommandOptions,
 } from "../../src/taskpane/sanitize";
@@ -76,6 +79,7 @@ const BASE_PERSISTED = {
   colorTarget: "fill" as const,
   pasteParts: { fill: true, line: true, font: true, size: true },
   fontSizeStep: 1,
+  renamePrefix: "Forma",
 };
 
 describe("toCommandOptions", () => {
@@ -108,6 +112,7 @@ describe("toCommandOptions", () => {
       colorTarget: "line",
       pasteParts,
       fontSizeStep: 1,
+      renamePrefix: "Forma",
     });
     expect(result.colorTarget).toBe("line");
     expect(result.pasteParts).toEqual(pasteParts);
@@ -121,6 +126,7 @@ describe("toCommandOptions", () => {
       colorTarget: "fill",
       pasteParts: { fill: true, line: true, font: true, size: true },
       fontSizeStep: 1,
+      renamePrefix: "Forma",
     });
     expect(result.color).toBeUndefined();
   });
@@ -128,6 +134,13 @@ describe("toCommandOptions", () => {
   it("includes the fontSizeStep", () => {
     const result = toCommandOptions({ ...DEFAULT_PERSISTED, fontSizeStep: 2.5 });
     expect(result.fontSizeStep).toBe(2.5);
+  });
+
+  it("passes renamePrefix through unchanged, and always sends nameFilter: '' and shapeKind: 'all'", () => {
+    const result = toCommandOptions({ ...DEFAULT_PERSISTED, renamePrefix: "Caja" });
+    expect(result.renamePrefix).toBe("Caja");
+    expect(result.nameFilter).toBe("");
+    expect(result.shapeKind).toBe("all");
   });
 });
 
@@ -235,5 +248,34 @@ describe("sanitizeFontSizeStep", () => {
     expect(sanitizeFontSizeStep(1.3)).toBe(1.5);
     expect(sanitizeFontSizeStep(1.74)).toBe(1.5);
     expect(sanitizeFontSizeStep(1.76)).toBe(2);
+  });
+});
+
+describe("sanitizeRenamePrefix", () => {
+  it("returns the default for garbage input", () => {
+    expect(sanitizeRenamePrefix(undefined)).toBe(DEFAULT_RENAME_PREFIX);
+    expect(sanitizeRenamePrefix(null)).toBe(DEFAULT_RENAME_PREFIX);
+    expect(sanitizeRenamePrefix(42)).toBe(DEFAULT_RENAME_PREFIX);
+    expect(sanitizeRenamePrefix({})).toBe(DEFAULT_RENAME_PREFIX);
+  });
+
+  it("passes through a valid string unchanged", () => {
+    expect(sanitizeRenamePrefix("Caja")).toBe("Caja");
+  });
+
+  it("trims leading/trailing whitespace", () => {
+    expect(sanitizeRenamePrefix("  Caja  ")).toBe("Caja");
+  });
+
+  it("keeps an empty (or whitespace-only) string as-is, rather than defaulting", () => {
+    expect(sanitizeRenamePrefix("")).toBe("");
+    expect(sanitizeRenamePrefix("   ")).toBe("");
+  });
+
+  it("caps the result at MAX_RENAME_PREFIX_LENGTH characters", () => {
+    const long = "x".repeat(MAX_RENAME_PREFIX_LENGTH + 10);
+    const result = sanitizeRenamePrefix(long);
+    expect(result).toHaveLength(MAX_RENAME_PREFIX_LENGTH);
+    expect(result).toBe("x".repeat(MAX_RENAME_PREFIX_LENGTH));
   });
 });

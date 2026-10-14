@@ -80,6 +80,21 @@ export function sanitizePasteParts(input: unknown): FormatParts {
   return { fill: b(o.fill), line: b(o.line), font: b(o.font), size: b(o.size) };
 }
 
+/** Longitud máxima del prefijo de "Renombrar numerado". */
+export const MAX_RENAME_PREFIX_LENGTH = 40;
+
+/** Prefijo por defecto de "Renombrar numerado". */
+export const DEFAULT_RENAME_PREFIX = "Forma";
+
+/** Sanea un valor arbitrario a un prefijo válido para "Renombrar numerado": recortado (trim) y
+ *  acotado a MAX_RENAME_PREFIX_LENGTH caracteres. Un valor no-string usa el valor por defecto; una
+ *  cadena vacía (tras recortar) es válida -- `numberedNames` ya trata un prefijo vacío como "sin
+ *  prefijo" (solo el número), y `rename-numbered` cae a "Forma" si queda vacío. */
+export function sanitizeRenamePrefix(input: unknown): string {
+  if (typeof input !== "string") return DEFAULT_RENAME_PREFIX;
+  return input.trim().slice(0, MAX_RENAME_PREFIX_LENGTH);
+}
+
 /** Paso por defecto (en puntos) al aumentar/reducir el tamaño de fuente. */
 export const DEFAULT_FONT_SIZE_STEP = 1;
 
@@ -94,7 +109,8 @@ export function sanitizeFontSizeStep(input: unknown): number {
 }
 
 /** Forma persistida en localStorage (ver settings.ts): matriz, preset de tamaño de diapositiva,
- *  colores recientes, destino de color, partes a pegar por defecto y paso de tamaño de fuente. */
+ *  colores recientes, destino de color, partes a pegar por defecto, paso de tamaño de fuente y
+ *  prefijo de "Renombrar numerado". */
 export interface PersistedOptions {
   matrix: MatrixOptions;
   slideSizePreset: SlideSizePreset;
@@ -102,6 +118,7 @@ export interface PersistedOptions {
   colorTarget: ColorTarget;
   pasteParts: FormatParts;
   fontSizeStep: number;
+  renamePrefix: string;
 }
 
 export const DEFAULT_PERSISTED: PersistedOptions = {
@@ -111,10 +128,13 @@ export const DEFAULT_PERSISTED: PersistedOptions = {
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
   fontSizeStep: DEFAULT_FONT_SIZE_STEP,
+  renamePrefix: DEFAULT_RENAME_PREFIX,
 };
 
 /** Convierte las opciones persistidas (ya saneadas) en las CommandOptions que consumen los comandos.
- *  No incluye `color`: ese se pasa en el momento del clic sobre una muestra. */
+ *  No incluye `color`: ese se pasa en el momento del clic sobre una muestra. Tampoco incluye
+ *  `nameFilter` ni `shapeKind`: "Seleccionar por nombre" y "Seleccionar por tipo" los pasan en el
+ *  momento del clic (ver expertSection.ts), no se persisten. */
 export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
   return {
     matrix: persisted.matrix,
@@ -123,8 +143,7 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     pasteParts: persisted.pasteParts,
     fontSizeStep: persisted.fontSizeStep,
     nameFilter: "",
-    // TODO Task 4: persistir renamePrefix
-    renamePrefix: "Forma",
+    renamePrefix: persisted.renamePrefix,
     shapeKind: "all",
   };
 }

@@ -1,6 +1,7 @@
 import { findCommand } from "../../commands/registry";
 import { DEFAULT_PALETTE, normalizeHex, pushRecent } from "../../core/color";
 import type { ColorTarget } from "../../core/format";
+import type { ThemeColor } from "../../office/theme";
 import { iconSvg } from "../icons";
 import { MAX_RECENT_COLORS } from "../sanitize";
 import type { SectionContext } from "./types";
@@ -15,11 +16,49 @@ const COLOR_TARGETS: ReadonlyArray<{ id: ColorTarget; icon: string; label: strin
 export class ColorSection {
   private targetButtons = new Map<ColorTarget, HTMLButtonElement>();
   private recentRowEl: HTMLElement | undefined;
+  private themeWrapEl: HTMLElement | undefined;
+  private themeRowEl: HTMLElement | undefined;
 
   constructor(private ctx: SectionContext) {}
 
   render(): HTMLElement[] {
-    return [this.colorTargetRow(), this.paletteRow(), this.recentSection(), this.customColorField()];
+    return [this.colorTargetRow(), this.themeSection(), this.paletteRow(), this.recentSection(), this.customColorField()];
+  }
+
+  /** Muestra (o, con `null`/vacío, oculta) la fila "Tema" con los colores del tema de la
+   *  diapositiva activa (requiere PowerPointApi 1.10; ver `office/theme.ts`). */
+  setThemeColors(colors: ThemeColor[] | null): void {
+    if (!this.themeWrapEl || !this.themeRowEl) return;
+    if (!colors || colors.length === 0) {
+      this.themeWrapEl.hidden = true;
+      this.themeRowEl.replaceChildren();
+      return;
+    }
+    this.themeWrapEl.hidden = false;
+    this.themeRowEl.replaceChildren(
+      ...colors.map((c) => {
+        const btn = this.swatch(c.hex);
+        btn.setAttribute("aria-label", `Color del tema ${c.name}: ${c.hex}`);
+        btn.title = `${c.name} (${c.hex})`;
+        return btn;
+      }),
+    );
+  }
+
+  private themeSection(): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.hidden = true;
+    const subtitle = document.createElement("div");
+    subtitle.className = "st-subtitle";
+    subtitle.textContent = "Tema";
+    wrap.appendChild(subtitle);
+    this.themeRowEl = document.createElement("div");
+    this.themeRowEl.className = "st-row";
+    this.themeRowEl.setAttribute("role", "group");
+    this.themeRowEl.setAttribute("aria-label", "Colores del tema");
+    wrap.appendChild(this.themeRowEl);
+    this.themeWrapEl = wrap;
+    return wrap;
   }
 
   /** Crea una muestra de color. El color ya pasó por `normalizeHex` antes de llegar aquí (paleta fija,

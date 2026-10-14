@@ -3,9 +3,13 @@ import { executeCommand } from "../commands/execute";
 import { SECTION_ORDER, commandsBySection, disabledReason } from "../commands/registry";
 import { SECTION_LABELS, type Command, type CommandOptions } from "../commands/types";
 import type { CommandResult } from "../office/runtime";
+import type { SelectionSummary } from "../office/summary";
+import { getThemeColors } from "../office/theme";
 import { iconSvg } from "./icons";
 import { ColorSection } from "./sections/colorSection";
+import { ExpertSection } from "./sections/expertSection";
 import { FormatSection } from "./sections/formatSection";
+import { NavigationSection } from "./sections/navigationSection";
 import { SettingsSection } from "./sections/settingsSection";
 import type { SectionContext } from "./sections/types";
 import { toCommandOptions } from "./sanitize";
@@ -22,6 +26,12 @@ export class Panel {
   private noticeTimer: number | undefined;
   private lastCount: number | null = null;
   private busy = false;
+  private colorSection: ColorSection | undefined;
+  private navigationSection: NavigationSection | undefined;
+  private expertSection: ExpertSection | undefined;
+  /** Diapositiva activa del último `setSummary`; `undefined` antes del primer resumen, para forzar
+   *  la primera lectura de colores del tema aunque esa diapositiva sea `null`. */
+  private lastSlideId: string | null | undefined;
 
   constructor(private root: HTMLElement, private notice: HTMLElement) {
     notice.setAttribute("role", "status");
@@ -33,7 +43,12 @@ export class Panel {
     const ctx = this.sectionContext();
     const formatSection = new FormatSection(ctx);
     const colorSection = new ColorSection(ctx);
+    const navigationSection = new NavigationSection(ctx);
+    const expertSection = new ExpertSection(ctx);
     const settingsSection = new SettingsSection(ctx);
+    this.colorSection = colorSection;
+    this.navigationSection = navigationSection;
+    this.expertSection = expertSection;
     SECTION_ORDER.forEach((section, i) => {
       if (i > 0) this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
       const sec = document.createElement("section");
@@ -48,6 +63,8 @@ export class Panel {
       sec.appendChild(row);
       if (section === "format") sec.append(...formatSection.render());
       if (section === "color") sec.append(...colorSection.render());
+      if (section === "navigation") sec.append(...navigationSection.render());
+      if (section === "expert") sec.append(...expertSection.render());
       this.root.appendChild(sec);
     });
     this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
@@ -75,6 +92,33 @@ export class Panel {
       const reason = count === null ? override : (disabledReason(cmd, count, hasClipboard) ?? override);
       el.disabled = reason !== undefined;
       el.title = reason ? `${cmd.label} — ${reason}` : cmd.label;
+    }
+  }
+
+  /**
+   * Recibe el resumen de selección en vivo (ver `office/summary.ts`): actualiza el conteo de
+   * formas (como `setSelectionCount`), el indicador de diapositiva/campo "Ir a" de Navigation y el
+   * inspector de Expert. Cuando la diapositiva activa cambia respecto a la última vez, también
+   * vuelve a pedir los colores del tema (otro `PowerPoint.run`, ver `office/theme.ts`) para la fila
+   * "Tema" de Color.
+   */
+  setSummary(summary: SelectionSummary | null): void {
+    this.setSelectionCount(summary?.count ?? null);
+    this.navigationSection?.update(summary);
+    this.expertSection?.update(summary);
+    const slideId = summary?.slideId ?? null;
+    if (slideId !== this.lastSlideId) {
+      this.lastSlideId = slideId;
+      void this.refreshThemeColors();
+    }
+  }
+
+  private async refreshThemeColors(): Promise<void> {
+    try {
+      const colors = await PowerPoint.run((context) => getThemeColors(context));
+      this.colorSection?.setThemeColors(colors);
+    } catch {
+      this.colorSection?.setThemeColors(null);
     }
   }
 

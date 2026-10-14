@@ -1,13 +1,10 @@
+import { readSelectionSummary, type SelectionSummary } from "../office/summary";
 import { Panel } from "./panel";
 
-/** Devuelve el número de formas seleccionadas, o `null` si no se pudo leer la selección. */
-async function selectedShapeCount(): Promise<number | null> {
+/** Lee el resumen de la selección actual (ver `office/summary.ts`), o `null` si no se pudo leer. */
+async function readSummary(): Promise<SelectionSummary | null> {
   try {
-    return await PowerPoint.run(async (context) => {
-      const count = context.presentation.getSelectedShapes().getCount();
-      await context.sync();
-      return count.value;
-    });
+    return await PowerPoint.run((context) => readSelectionSummary(context));
   } catch {
     return null;
   }
@@ -36,8 +33,8 @@ if (typeof Office === "undefined") {
     let timer: number | undefined;
     const refresh = async () => {
       const id = ++seq;
-      const n = await selectedShapeCount();
-      if (id === seq) panel.setSelectionCount(n);
+      const summary = await readSummary();
+      if (id === seq) panel.setSummary(summary);
     };
     const scheduleRefresh = () => {
       window.clearTimeout(timer);

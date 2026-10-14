@@ -138,8 +138,8 @@ describe("wizards commands", () => {
     expect(item1!.formatWrites).toContainEqual({ path: "font.color", value: "#00AA00" });
   });
 
-  it("passes the blank layout id (found via findBlankLayoutId) to each slides.add call", async () => {
-    // Mock por defecto: layouts = [{ id: "lay-title", ... }, { id: "lay-blank", name: "Blank" }].
+  it("passes the blank layout's slide master id and layout id (found via findBlankLayout) to each slides.add call", async () => {
+    // Mock por defecto: masterId "master-1", layouts = [{ id: "lay-title", ... }, { id: "lay-blank", name: "Blank" }].
     const ctx = new MockContext([], "", { slides: [{ id: "sl1" }] });
     stubPowerPoint(ctx);
 
@@ -148,7 +148,10 @@ describe("wizards commands", () => {
 
     const addCalls = ctx.calls.filter((c) => c.path === "slides.add");
     expect(addCalls).toHaveLength(2);
-    expect(addCalls.every((c) => (c.value as { layoutId?: string } | undefined)?.layoutId === "lay-blank")).toBe(true);
+    expect(addCalls.every((c) => c.value && typeof c.value === "object")).toBe(true);
+    for (const call of addCalls) {
+      expect(call.value).toEqual({ slideMasterId: "master-1", layoutId: "lay-blank" });
+    }
   });
 
   it("without a blank layout (layouts: []), deletes the placeholders of every newly created slide", async () => {

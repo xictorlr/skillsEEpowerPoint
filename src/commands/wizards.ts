@@ -1,5 +1,5 @@
 import { agendaLayout, parseAgendaSections } from "../core/check";
-import { addSlideAfter, addTextBox, deletePlaceholders, findBlankLayoutId } from "../office/deck";
+import { addSlideAfter, addTextBox, deletePlaceholders, findBlankLayout } from "../office/deck";
 import { readSlideNav } from "../office/navigation";
 import { getSlideSize } from "../office/slideSize";
 import { getThemeColors } from "../office/theme";
@@ -32,11 +32,11 @@ const agendaCreate: ActionCommand = {
     // Layout "en blanco" del slide master, si existe: evita que la diapositiva nazca con los
     // marcadores de posición del layout por defecto (título, contenido…). Si no se encuentra
     // ninguno, `deletePlaceholders` actúa como red de seguridad una vez creada la diapositiva.
-    const layoutId = await findBlankLayoutId(context);
+    const layout = await findBlankLayout(context);
 
     for (let i = 0; i < sections.length; i++) {
-      const slide = await addSlideAfter(context, nav.index + i, layoutId);
-      if (!layoutId) await deletePlaceholders(context, slide);
+      const slide = await addSlideAfter(context, nav.index + i, layout);
+      if (!layout) await deletePlaceholders(context, slide);
       const spec = agendaLayout(size, { title: options.agenda.title, sections }, i);
       addTextBox(slide, spec.title.text, spec.title.rect, { size: 28, bold: true, color: null });
       for (const item of spec.items) {

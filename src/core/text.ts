@@ -12,9 +12,18 @@ export interface TextShape {
   margins: Margins;
 }
 
+/** Edición de un sub-rango de texto. `start`/`length` son índices UTF-16 sobre el texto ANTIGUO (como en los strings de JS). */
+export interface TextEdit { start: number; length: number; text: string }
+
 export interface TextPatch {
   id: string;
-  text?: string;
+  /**
+   * Ediciones de sub-rango a aplicar sobre `textRange`, p. ej. con
+   * `textRange.getSubstring(start, length).text = text`. Vienen ordenadas por
+   * `start` DESCENDENTE y deben aplicarse en el ORDEN DEL ARREGLO (de la última
+   * a la primera) para no desplazar los índices de las ediciones pendientes.
+   */
+  edits?: TextEdit[];
   fontSize?: number;
   horizontalAlignment?: string;
   verticalAlignment?: string;
@@ -130,11 +139,67 @@ export function cleanText(text: string): string {
   return joinLines(lines);
 }
 
+interface Token { start: number; length: number; text: string }
+
+/** Tokeniza en tramos máximos de no-espacio, con su offset dentro de la línea. */
+function wordTokens(line: string): Token[] {
+  const out: Token[] = [];
+  const re = /\S+/gu;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line)) !== null) {
+    out.push({ start: m.index, length: m[0].length, text: m[0] });
+  }
+  return out;
+}
+
+/**
+ * Calcula ediciones de sub-rango (índices UTF-16 sobre `oldText`) que transforman
+ * `oldText` en `newText`, preservando el formato de las partes sin cambios:
+ * - Si el número de párrafos coincide, compara párrafo a párrafo: si la longitud del
+ *   párrafo no cambia (p. ej. un cambio de caja), emite ediciones por palabra (tramos de
+ *   no-espacio) solo para las palabras que cambian; si cambia la longitud, emite una
+ *   única edición para el párrafo completo.
+ * - Si el número de párrafos difiere (p. ej. `cleanText` eliminó párrafos vacíos), emite
+ *   una única edición de reemplazo de todo el texto (no hay una correspondencia 1:1 de
+ *   párrafos en la que basar ediciones parciales).
+ * El resultado viene ordenado por `start` DESCENDENTE, listo para aplicarse en ese orden.
+ */
+export function computeTextEdits(oldText: string, newText: string): TextEdit[] {
+  if (oldText === newText) return [];
+  const oldLines = splitLines(oldText);
+  const newLines = splitLines(newText);
+  if (oldLines.length !== newLines.length) {
+    return [{ start: 0, length: oldText.length, text: newText }];
+  }
+  const edits: TextEdit[] = [];
+  let offset = 0;
+  for (let i = 0; i < oldLines.length; i++) {
+    const oldLine = oldLines[i]!;
+    const newLine = newLines[i]!;
+    if (oldLine.text !== newLine.text) {
+      if (oldLine.text.length === newLine.text.length) {
+        const oldTokens = wordTokens(oldLine.text);
+        const newTokens = wordTokens(newLine.text);
+        for (let t = 0; t < oldTokens.length; t++) {
+          const ot = oldTokens[t]!;
+          const nt = newTokens[t];
+          if (nt && ot.text !== nt.text) edits.push({ start: offset + ot.start, length: ot.length, text: nt.text });
+        }
+      } else {
+        edits.push({ start: offset, length: oldLine.text.length, text: newLine.text });
+      }
+    }
+    offset += oldLine.text.length + oldLine.sep.length;
+  }
+  edits.sort((a, b) => b.start - a.start);
+  return edits;
+}
+
 export function casePatches(shapes: TextShape[], mode: CaseMode): TextPatch[] {
   const out: TextPatch[] = [];
   for (const s of shapes) {
-    const text = changeCase(s.text, mode);
-    if (text !== s.text) out.push({ id: s.id, text });
+    const edits = computeTextEdits(s.text, changeCase(s.text, mode));
+    if (edits.length > 0) out.push({ id: s.id, edits });
   }
   return out;
 }
@@ -142,8 +207,8 @@ export function casePatches(shapes: TextShape[], mode: CaseMode): TextPatch[] {
 export function cleanPatches(shapes: TextShape[]): TextPatch[] {
   const out: TextPatch[] = [];
   for (const s of shapes) {
-    const text = cleanText(s.text);
-    if (text !== s.text) out.push({ id: s.id, text });
+    const edits = computeTextEdits(s.text, cleanText(s.text));
+    if (edits.length > 0) out.push({ id: s.id, edits });
   }
   return out;
 }
@@ -165,8 +230,15 @@ export function paragraphAlignPatches(shapes: TextShape[], align: string): TextP
   return shapes.filter((s) => s.horizontalAlignment !== align).map((s) => ({ id: s.id, horizontalAlignment: align }));
 }
 
+/** Compara sobre el valor base (sin el sufijo `Centered`) y, si el valor actual lo tenía, lo conserva en el resultado. */
 export function verticalAlignPatches(shapes: TextShape[], align: string): TextPatch[] {
-  return shapes.filter((s) => s.verticalAlignment !== align).map((s) => ({ id: s.id, verticalAlignment: align }));
+  const out: TextPatch[] = [];
+  for (const s of shapes) {
+    const v = s.verticalAlignment;
+    if (v.replace(/Centered$/, "") === align) continue;
+    out.push({ id: s.id, verticalAlignment: v.endsWith("Centered") ? `${align}Centered` : align });
+  }
+  return out;
 }
 
 function sameMargins(a: Margins, b: Margins): boolean {

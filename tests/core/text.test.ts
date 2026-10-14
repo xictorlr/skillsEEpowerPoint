@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  autoSizePatches, casePatches, changeCase, cleanPatches, cleanText, fontSizePatches,
+  autoSizePatches, casePatches, changeCase, cleanPatches, cleanText, computeTextEdits, fontSizePatches,
   marginPatches, paragraphAlignPatches, splitLines, verticalAlignPatches, wordWrapPatches,
   STANDARD_MARGINS, ZERO_MARGINS, type TextShape,
 } from "../../src/core/text";
@@ -67,9 +67,36 @@ describe("cleanText", () => {
   });
 });
 
+describe("computeTextEdits", () => {
+  it("returns [] for identical texts", () => {
+    expect(computeTextEdits("hola mundo", "hola mundo")).toEqual([]);
+  });
+  it("emits word-level edits only for changed words, sorted by start descending", () => {
+    expect(computeTextEdits("hola MUNDO bien", "HOLA MUNDO BIEN")).toEqual([
+      { start: 11, length: 4, text: "BIEN" },
+      { start: 0, length: 4, text: "HOLA" },
+    ]);
+  });
+  it("emits a whole-line edit when the line length changes", () => {
+    expect(computeTextEdits("ß", "SS")).toEqual([{ start: 0, length: 1, text: "SS" }]);
+  });
+  it("in a multi-paragraph text, only edits the changed paragraph with correct absolute offsets", () => {
+    expect(computeTextEdits("uno\rdos tres\rcuatro", "uno\rDOS tres\rcuatro")).toEqual([
+      { start: 4, length: 3, text: "DOS" },
+    ]);
+  });
+  it("falls back to a single whole-text edit when paragraph counts differ", () => {
+    expect(computeTextEdits("hola\r\rmundo", "hola\rmundo")).toEqual([
+      { start: 0, length: 11, text: "hola\rmundo" },
+    ]);
+  });
+});
+
 describe("patch generators", () => {
-  it("casePatches only emits changed texts", () => {
-    expect(casePatches([ts("a"), ts("b", { text: "HOLA MUNDO" })], "upper")).toEqual([{ id: "a", text: "HOLA MUNDO" }]);
+  it("casePatches only emits sub-range edits for shapes that actually change", () => {
+    expect(casePatches([ts("a"), ts("b", { text: "HOLA MUNDO" })], "upper")).toEqual([
+      { id: "a", edits: [{ start: 5, length: 5, text: "MUNDO" }, { start: 0, length: 4, text: "HOLA" }] },
+    ]);
   });
   it("fontSizePatches steps and clamps, skipping mixed sizes", () => {
     expect(fontSizePatches([ts("a"), ts("b", { fontSize: null }), ts("c", { fontSize: 1 })], -1)).toEqual([{ id: "a", fontSize: 11 }]);
@@ -86,6 +113,12 @@ describe("patch generators", () => {
     expect(verticalAlignPatches([ts("a")], "Middle")).toEqual([{ id: "a", verticalAlignment: "Middle" }]);
     expect(verticalAlignPatches([ts("a")], "Top")).toEqual([]);
   });
+  it("verticalAlignPatches compares on the base value and preserves a *Centered suffix", () => {
+    expect(verticalAlignPatches([ts("a", { verticalAlignment: "MiddleCentered" })], "Middle")).toEqual([]);
+    expect(verticalAlignPatches([ts("a", { verticalAlignment: "TopCentered" })], "Middle")).toEqual([
+      { id: "a", verticalAlignment: "MiddleCentered" },
+    ]);
+  });
   it("paragraphAlignPatches treats a mixed (null) alignment as needing a patch", () => {
     expect(paragraphAlignPatches([ts("a", { horizontalAlignment: null })], "Center")).toEqual([{ id: "a", horizontalAlignment: "Center" }]);
   });
@@ -99,8 +132,10 @@ describe("patch generators", () => {
     expect(wordWrapPatches([ts("a")], false)).toEqual([{ id: "a", wordWrap: false }]);
     expect(wordWrapPatches([ts("a")], true)).toEqual([]);
   });
-  it("cleanPatches only emits when the text changes", () => {
-    expect(cleanPatches([ts("a", { text: "a  b" }), ts("b")])).toEqual([{ id: "a", text: "a b" }]);
+  it("cleanPatches only emits sub-range edits when the text changes", () => {
+    expect(cleanPatches([ts("a", { text: "a  b" }), ts("b")])).toEqual([
+      { id: "a", edits: [{ start: 0, length: 4, text: "a b" }] },
+    ]);
   });
   it("all generators return [] for empty input", () => {
     expect(casePatches([], "upper")).toEqual([]);

@@ -119,3 +119,9 @@ Tras instalar el add-in, en una presentación de prueba:
 6. **Text:** en un cuadro con viñetas y una primera línea en negrita, aplica "MAYÚSCULAS" y comprueba que las
    viñetas y la negrita se conservan; pon los márgenes internos a cero y verifica que el texto queda pegado
    al borde; aplica "ajustar forma al texto" y comprueba que la forma crece o se encoge según el contenido.
+
+7. **Text, casos límite:** aplica MAYÚSCULAS a un cuadro con un emoji y a otro con un campo de número de
+   diapositiva (deben cambiar solo las letras, sin desplazar caracteres); "Limpiar texto" en un cuadro con
+   párrafos vacíos en medio y al final (deben desaparecer conservando negritas); "Tipo oración" en un texto con
+   un salto de línea suave (Mayús+Intro) dentro de una frase (no debe capitalizar tras el salto); "Texto en el
+   medio" sobre una forma ya centrada horizontalmente (debe conservar el centrado). Si algo falla, Cmd+Z lo deshace.

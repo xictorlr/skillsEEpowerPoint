@@ -2,11 +2,12 @@ import { alignmentCommands } from "./alignment";
 import { colorCommands } from "./color";
 import { formatCommands } from "./format";
 import { sizeCommands } from "./size";
+import { textCommands } from "./text";
 import type { Command, SectionId } from "./types";
 
-export const SECTION_ORDER: readonly SectionId[] = ["alignment", "size", "format", "color"];
+export const SECTION_ORDER: readonly SectionId[] = ["alignment", "size", "format", "color", "text"];
 
-export const commands: readonly Command[] = [...alignmentCommands, ...sizeCommands, ...formatCommands, ...colorCommands];
+export const commands: readonly Command[] = [...alignmentCommands, ...sizeCommands, ...formatCommands, ...colorCommands, ...textCommands];
 
 /** Comandos que el panel no renderiza como botón (se disparan desde otros controles). */
 export const hiddenCommandIds: ReadonlySet<string> = new Set(["set-color"]);

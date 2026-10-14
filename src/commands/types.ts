@@ -1,14 +1,16 @@
 import type { MatrixOptions } from "../core/geometry";
 import type { ColorTarget, FormatParts, FormatPatch, ShapeFormat } from "../core/format";
 import type { Patch, SelectionContext, SlideSize } from "../core/types";
+import type { TextPatch, TextShape } from "../core/text";
 
-export type SectionId = "alignment" | "size" | "format" | "color";
+export type SectionId = "alignment" | "size" | "format" | "color" | "text";
 
 export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   alignment: "Alignment",
   size: "Size",
   format: "Format",
   color: "Color",
+  text: "Text",
 };
 
 export interface CommandOptions {
@@ -21,6 +23,8 @@ export interface CommandOptions {
   colorTarget: ColorTarget;
   /** Qué partes pega "Pegar formato". */
   pasteParts: FormatParts;
+  /** Puntos que suman/restan "Aumentar"/"Reducir tamaño de fuente". */
+  fontSizeStep: number;
 }
 
 interface BaseCommand {
@@ -50,4 +54,12 @@ export interface CopyFormatCommand extends BaseCommand {
   kind: "copy-format";
 }
 
-export type Command = GeometryCommand | FormatCommand | CopyFormatCommand;
+export interface TextCommand extends BaseCommand {
+  kind: "text";
+  compute: (texts: TextShape[], options: CommandOptions) => TextPatch[];
+}
+
+/** Firma de `TextCommand.compute`; evita el tipo condicional al tipar el helper en `text.ts`. */
+export type TextCompute = TextCommand["compute"];
+
+export type Command = GeometryCommand | FormatCommand | CopyFormatCommand | TextCommand;

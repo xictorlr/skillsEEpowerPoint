@@ -1,5 +1,6 @@
 import { applyPatches } from "../office/apply";
 import { applyFormatPatch } from "../office/format";
+import { applyTextPatch } from "../office/text";
 import { runCommand, type CommandOutcome, type CommandResult } from "../office/runtime";
 import { readSelection } from "../office/selection";
 import type { SlideSize } from "../core/types";
@@ -19,13 +20,15 @@ export function resetSlideSizeCache(): void {
 /** Lee la selección, calcula los parches del comando y los aplica en un único sync de escritura. */
 export async function executeCommand(cmd: Command, options: CommandOptions): Promise<CommandResult> {
   return runCommand(cmd.id, async (context): Promise<CommandOutcome> => {
-    const withFormat = cmd.kind !== "geometry";
-    const { selection, proxies, formats, caps } = await readSelection(context, {
+    const withText = cmd.kind === "text";
+    const withFormat = cmd.kind === "format" || cmd.kind === "copy-format";
+    const { selection, proxies, formats, caps, texts } = await readSelection(context, {
       slideSizeCache,
       slideSizeOverride: options.slideSize,
       withFormat,
-      // Los comandos de formato no leen selection.slide: evita pagar su sync.
-      withSlideSize: !withFormat,
+      withText,
+      // Los comandos de formato/texto no leen selection.slide: evita pagar su sync.
+      withSlideSize: !withFormat && !withText,
     });
     const reason = disabledReason(cmd, selection.shapes.length, getClipboard() !== null);
     if (reason) throw new Error(reason);
@@ -52,6 +55,16 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
           const shape = proxies.get(p.id);
           const shapeCaps = caps.get(p.id);
           if (shape && shapeCaps) applyFormatPatch(shape, p, shapeCaps);
+        }
+        await context.sync();
+        return { changed: new Set(patches.map((p) => p.id)).size };
+      }
+      case "text": {
+        const patches = cmd.compute(texts, options);
+        if (patches.length === 0) return { changed: 0, message: texts.length === 0 ? "La selección no tiene texto." : undefined };
+        for (const p of patches) {
+          const shape = proxies.get(p.id);
+          if (shape) applyTextPatch(shape, p);
         }
         await context.sync();
         return { changed: new Set(patches.map((p) => p.id)).size };

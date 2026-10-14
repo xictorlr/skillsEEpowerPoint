@@ -9,6 +9,7 @@ const DEFAULT_OPTIONS: CommandOptions = {
   matrix: { columns: 2, gapX: 8, gapY: 8 },
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
+  fontSizeStep: 1,
 };
 
 function stubPowerPoint(ctx: MockContext): void {

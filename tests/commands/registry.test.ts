@@ -7,6 +7,7 @@ const OPTS: CommandOptions = {
   matrix: { columns: 2, gapX: 8, gapY: 8 },
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
+  fontSizeStep: 1,
 };
 
 describe("registry", () => {
@@ -34,7 +35,7 @@ describe("registry", () => {
   });
 
   it("includes format and color sections and hides set-color from buttons", () => {
-    expect(SECTION_ORDER).toEqual(["alignment", "size", "format", "color"]);
+    expect(SECTION_ORDER).toEqual(["alignment", "size", "format", "color", "text"]);
     expect(commandsBySection("format").map((c) => c.id)).toEqual(["copy-format", "paste-format", "paste-fill", "paste-line", "paste-font", "paste-size"]);
     expect(commandsBySection("color").map((c) => c.id)).toEqual(["no-fill", "no-line", "transparency-up", "transparency-down"]);
     expect(findCommand("set-color")).toBeDefined();

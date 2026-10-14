@@ -105,5 +105,7 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     slideSize: SLIDE_SIZE_PRESETS[persisted.slideSizePreset],
     colorTarget: persisted.colorTarget,
     pasteParts: persisted.pasteParts,
+    // TODO Task 4: persistir el paso de tamaño de fuente en PersistedOptions.
+    fontSizeStep: 1,
   };
 }

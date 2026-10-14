@@ -10,6 +10,7 @@ const OPTS: CommandOptions = {
   slideSize: { width: 960, height: 540 },
   colorTarget: "fill",
   pasteParts: { fill: true, line: true, font: true, size: true },
+  fontSizeStep: 1,
 };
 
 let ctx: MockContext;

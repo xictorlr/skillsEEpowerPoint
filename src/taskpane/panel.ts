@@ -1,8 +1,12 @@
 import { executeCommand } from "../commands/execute";
-import { SECTION_ORDER, commandsBySection, disabledReason } from "../commands/registry";
+import { SECTION_ORDER, commandsBySection, disabledReason, findCommand } from "../commands/registry";
 import { SECTION_LABELS, type Command, type CommandOptions } from "../commands/types";
+import { DEFAULT_PALETTE, normalizeHex, pushRecent } from "../core/color";
+import type { ColorTarget, FormatParts } from "../core/format";
+import type { CommandResult } from "../office/runtime";
 import { iconSvg } from "./icons";
 import {
+  MAX_RECENT_COLORS,
   SLIDE_SIZE_PRESETS,
   sanitizeMatrix,
   sanitizeSlideSizePreset,
@@ -20,13 +24,30 @@ const SLIDE_SIZE_LABELS: Record<SlideSizePreset, string> = {
   letter: "Carta (720×540)",
 };
 
+const COLOR_TARGETS: ReadonlyArray<{ id: ColorTarget; icon: string; label: string }> = [
+  { id: "fill", icon: "targetFill", label: "Destino: relleno" },
+  { id: "line", icon: "targetLine", label: "Destino: línea" },
+  { id: "font", icon: "targetFont", label: "Destino: texto" },
+];
+
+const PASTE_PART_FIELDS: ReadonlyArray<{ key: keyof FormatParts; label: string }> = [
+  { key: "fill", label: "Relleno" },
+  { key: "line", label: "Línea" },
+  { key: "font", label: "Fuente" },
+  { key: "size", label: "Tamaño" },
+];
+
 export class Panel {
   private persisted: PersistedOptions = loadPersistedOptions();
   private options: CommandOptions = toCommandOptions(this.persisted);
   private buttons = new Map<string, { el: HTMLButtonElement; cmd: Command }>();
+  private targetButtons = new Map<ColorTarget, HTMLButtonElement>();
+  private recentRowEl: HTMLElement | undefined;
   private noticeTimer: number | undefined;
   private lastCount: number | null = null;
   private busy = false;
+  /** Si hay un formato copiado en el portapapeles interno (habilita los botones de pegar). */
+  private hasClipboard = false;
 
   constructor(private root: HTMLElement, private notice: HTMLElement) {
     notice.setAttribute("role", "status");
@@ -35,6 +56,7 @@ export class Panel {
 
   render(): void {
     this.root.replaceChildren();
+    this.targetButtons.clear();
     SECTION_ORDER.forEach((section, i) => {
       if (i > 0) this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
       const sec = document.createElement("section");
@@ -47,6 +69,13 @@ export class Panel {
       row.className = "st-row";
       for (const cmd of commandsBySection(section)) row.appendChild(this.button(cmd));
       sec.appendChild(row);
+      if (section === "format") sec.appendChild(this.pastePartsRow());
+      if (section === "color") {
+        sec.appendChild(this.colorTargetRow());
+        sec.appendChild(this.paletteRow());
+        sec.appendChild(this.recentSection());
+        sec.appendChild(this.customColorField());
+      }
       this.root.appendChild(sec);
     });
     this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
@@ -70,7 +99,7 @@ export class Panel {
         el.title = cmd.label;
         continue;
       }
-      const reason = disabledReason(cmd, count);
+      const reason = disabledReason(cmd, count, this.hasClipboard);
       el.disabled = reason !== undefined;
       el.title = reason ? `${cmd.label} — ${reason}` : cmd.label;
     }
@@ -95,15 +124,139 @@ export class Panel {
     return el;
   }
 
-  private async run(cmd: Command): Promise<void> {
-    if (this.busy) return;
+  /** Crea una muestra de color. El color ya pasó por `normalizeHex` antes de llegar aquí (paleta fija,
+   *  recientes saneados, o el valor normalizado que devuelve `applyColor`), así que nunca se vuelca
+   *  HTML arbitrario: solo se usa como valor de una custom property CSS. */
+  private swatch(color: string): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "st-swatch";
+    btn.setAttribute("aria-label", `Color ${color}`);
+    btn.title = color;
+    btn.style.setProperty("--swatch", color);
+    btn.addEventListener("click", () => void this.applyColor(color));
+    return btn;
+  }
+
+  private paletteRow(): HTMLElement {
+    const wrap = document.createElement("div");
+    const subtitle = document.createElement("div");
+    subtitle.className = "st-subtitle";
+    subtitle.textContent = "Paleta";
+    wrap.appendChild(subtitle);
+    const row = document.createElement("div");
+    row.className = "st-row";
+    for (const color of DEFAULT_PALETTE) row.appendChild(this.swatch(color));
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  private recentSection(): HTMLElement {
+    const wrap = document.createElement("div");
+    const subtitle = document.createElement("div");
+    subtitle.className = "st-subtitle";
+    subtitle.textContent = "Recientes";
+    wrap.appendChild(subtitle);
+    this.recentRowEl = document.createElement("div");
+    this.recentRowEl.className = "st-row";
+    this.renderRecentRow();
+    wrap.appendChild(this.recentRowEl);
+    return wrap;
+  }
+
+  private renderRecentRow(): void {
+    this.recentRowEl?.replaceChildren(...this.persisted.recentColors.map((c) => this.swatch(c)));
+  }
+
+  private colorTargetRow(): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "st-row";
+    for (const t of COLOR_TARGETS) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "st-btn st-toggle";
+      btn.innerHTML = iconSvg(t.icon);
+      btn.setAttribute("aria-label", t.label);
+      btn.title = t.label;
+      const active = this.persisted.colorTarget === t.id;
+      btn.setAttribute("aria-pressed", String(active));
+      btn.classList.toggle("is-active", active);
+      btn.addEventListener("click", () => this.setColorTarget(t.id));
+      this.targetButtons.set(t.id, btn);
+      row.appendChild(btn);
+    }
+    return row;
+  }
+
+  private setColorTarget(target: ColorTarget): void {
+    this.persisted = { ...this.persisted, colorTarget: target };
+    this.options = toCommandOptions(this.persisted);
+    saveOptions(this.persisted);
+    for (const [id, btn] of this.targetButtons) {
+      const active = id === target;
+      btn.setAttribute("aria-pressed", String(active));
+      btn.classList.toggle("is-active", active);
+    }
+  }
+
+  private customColorField(): HTMLElement {
+    const field = document.createElement("label");
+    field.className = "st-field";
+    field.append("Otro");
+    const input = document.createElement("input");
+    input.type = "color";
+    input.addEventListener("change", () => void this.applyColor(input.value));
+    field.appendChild(input);
+    return field;
+  }
+
+  private async applyColor(color: string): Promise<void> {
+    const hex = normalizeHex(color);
+    if (!hex) return;
+    const cmd = findCommand("set-color");
+    if (!cmd) return;
+    const result = await this.run(cmd, { color: hex });
+    if (result?.ok) {
+      this.persisted = { ...this.persisted, recentColors: pushRecent(this.persisted.recentColors, hex, MAX_RECENT_COLORS) };
+      saveOptions(this.persisted);
+      this.renderRecentRow();
+    }
+  }
+
+  private pastePartsRow(): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "st-row";
+    for (const part of PASTE_PART_FIELDS) {
+      const label = document.createElement("label");
+      label.className = "st-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = this.persisted.pasteParts[part.key];
+      input.addEventListener("change", () => {
+        const pasteParts = { ...this.persisted.pasteParts, [part.key]: input.checked };
+        this.persisted = { ...this.persisted, pasteParts };
+        this.options = toCommandOptions(this.persisted);
+        saveOptions(this.persisted);
+      });
+      label.append(input, ` ${part.label}`);
+      row.appendChild(label);
+    }
+    return row;
+  }
+
+  private async run(cmd: Command, extra?: Partial<CommandOptions>): Promise<CommandResult | undefined> {
+    if (this.busy) return undefined;
     this.busy = true;
     for (const { el } of this.buttons.values()) el.disabled = true;
     this.root.setAttribute("aria-busy", "true");
     try {
-      const result = await executeCommand(cmd, this.options);
+      const options = extra ? { ...this.options, ...extra } : this.options;
+      const result = await executeCommand(cmd, options);
       if (!result.ok) this.showNotice(result.message, true);
+      else if (result.message) this.showNotice(result.message);
       else if (result.changed === 0) this.showNotice("Nada que cambiar.");
+      if (result.ok && cmd.kind === "copy-format") this.hasClipboard = true;
+      return result;
     } finally {
       this.busy = false;
       this.root.removeAttribute("aria-busy");

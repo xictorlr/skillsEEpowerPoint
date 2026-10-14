@@ -30,6 +30,20 @@ export const icons: Record<string, string> = {
   stretchRight: `<svg ${S}><line x1="14" y1="1" x2="14" y2="15" ${REF}/>${box(2, 5, 7, 6)}<path d="M9 8h4M11.5 6.5 13 8l-1.5 1.5"/></svg>`,
   stretchTop: `<svg ${S}><line x1="1" y1="2" x2="15" y2="2" ${REF}/>${box(5, 7, 6, 7)}<path d="M8 7V3M6.5 4.5 8 3l1.5 1.5"/></svg>`,
   stretchBottom: `<svg ${S}><line x1="1" y1="14" x2="15" y2="14" ${REF}/>${box(5, 2, 6, 7)}<path d="M8 9v4M6.5 11.5 8 13l1.5-1.5"/></svg>`,
+  copyFormat: `<svg ${S}>${box(2, 2, 7, 9)}<path d="M9 4h4v10H5v-2" /><path d="M4 5.5 6 7l2.5-3" ${REF}/></svg>`,
+  pasteFormat: `<svg ${S}><path d="M3 3h10v11H3z"/><path d="M6 3V1.5h4V3"/><path d="M5 8h6M5 11h6" ${REF}/></svg>`,
+  pasteFill: `<svg ${S}><path d="M3 3h10v11H3z"/>${box(5, 6, 6, 6)}</svg>`,
+  pasteLine: `<svg ${S}><path d="M3 3h10v11H3z"/><rect x="5" y="6" width="6" height="6" ${REF}/></svg>`,
+  pasteFont: `<svg ${S}><path d="M3 3h10v11H3z"/><path d="M5.5 12 8 5.5 10.5 12M6.3 10h3.4" ${REF}/></svg>`,
+  pasteSize: `<svg ${S}><path d="M3 3h10v11H3z"/><path d="M5.5 11.5v-6h6" ${REF}/><path d="M5.5 5.5 7 7M5.5 5.5 7 4"/></svg>`,
+  noFill: `<svg ${S}><rect x="3" y="3" width="10" height="10"/><path d="M3 13 13 3" ${REF}/></svg>`,
+  noLine: `<svg ${S}><rect x="3" y="3" width="10" height="10" stroke-dasharray="2 2"/><path d="M3 13 13 3" ${REF}/></svg>`,
+  transparencyUp: `<svg ${S}>${box(2, 4, 8, 8)}<rect x="6" y="2" width="8" height="8" fill="currentColor" fill-opacity=".1"/><path d="M11 13v3M9.5 14.5h3" ${REF}/></svg>`,
+  transparencyDown: `<svg ${S}>${box(2, 4, 8, 8)}<rect x="6" y="2" width="8" height="8" fill="currentColor" fill-opacity=".6"/><path d="M9.5 14.5h3" ${REF}/></svg>`,
+  targetFill: `<svg ${S}>${box(3, 3, 10, 10)}</svg>`,
+  targetLine: `<svg ${S}><rect x="3" y="3" width="10" height="10" stroke-width="2"/></svg>`,
+  targetFont: `<svg ${S}><path d="M4 13 8 3l4 10M5.5 9.5h5"/></svg>`,
+  setColor: `<svg ${S}><circle cx="8" cy="8" r="5"/></svg>`,
 };
 
 export function iconSvg(id: string): string {

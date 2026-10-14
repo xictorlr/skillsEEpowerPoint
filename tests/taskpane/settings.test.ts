@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MATRIX,
+  MAX_RECENT_COLORS,
   SLIDE_SIZE_PRESETS,
+  sanitizeColorTarget,
   sanitizeMatrix,
+  sanitizePasteParts,
+  sanitizeRecentColors,
   sanitizeSlideSizePreset,
   toCommandOptions,
 } from "../../src/taskpane/sanitize";
@@ -65,20 +69,129 @@ describe("sanitizeSlideSizePreset", () => {
   });
 });
 
+const BASE_PERSISTED = {
+  recentColors: [] as string[],
+  colorTarget: "fill" as const,
+  pasteParts: { fill: true, line: true, font: true, size: true },
+};
+
 describe("toCommandOptions", () => {
   it("resolves a forced preset to its slide size", () => {
-    expect(toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "16x9-legacy" }).slideSize).toEqual({
+    expect(
+      toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "16x9-legacy", ...BASE_PERSISTED }).slideSize,
+    ).toEqual({
       width: 720,
       height: 405,
     });
   });
 
   it("leaves slideSize undefined for 'auto'", () => {
-    expect(toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "auto" }).slideSize).toBeUndefined();
+    expect(
+      toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "auto", ...BASE_PERSISTED }).slideSize,
+    ).toBeUndefined();
   });
 
   it("passes the matrix through unchanged", () => {
     const matrix = { columns: 4, gapX: 10, gapY: 12 };
-    expect(toCommandOptions({ matrix, slideSizePreset: "auto" }).matrix).toEqual(matrix);
+    expect(toCommandOptions({ matrix, slideSizePreset: "auto", ...BASE_PERSISTED }).matrix).toEqual(matrix);
+  });
+
+  it("includes colorTarget and pasteParts", () => {
+    const pasteParts = { fill: true, line: false, font: true, size: false };
+    const result = toCommandOptions({
+      matrix: DEFAULT_MATRIX,
+      slideSizePreset: "auto",
+      recentColors: [],
+      colorTarget: "line",
+      pasteParts,
+    });
+    expect(result.colorTarget).toBe("line");
+    expect(result.pasteParts).toEqual(pasteParts);
+  });
+
+  it("never includes a color field (that's passed at click time)", () => {
+    const result = toCommandOptions({
+      matrix: DEFAULT_MATRIX,
+      slideSizePreset: "auto",
+      recentColors: [],
+      colorTarget: "fill",
+      pasteParts: { fill: true, line: true, font: true, size: true },
+    });
+    expect(result.color).toBeUndefined();
+  });
+});
+
+describe("sanitizeRecentColors", () => {
+  it("returns an empty array for non-array input", () => {
+    expect(sanitizeRecentColors(undefined)).toEqual([]);
+    expect(sanitizeRecentColors(null)).toEqual([]);
+    expect(sanitizeRecentColors("not-an-array")).toEqual([]);
+    expect(sanitizeRecentColors({})).toEqual([]);
+  });
+
+  it("filters out invalid entries", () => {
+    expect(sanitizeRecentColors(["#FF0000", 42, null, {}, "not-a-color", "#00ff00"])).toEqual(["#FF0000", "#00FF00"]);
+  });
+
+  it("normalizes each valid color (3-digit shorthand expands and dedups against its 6-digit form)", () => {
+    expect(sanitizeRecentColors(["abc", "#AABBCC"])).toEqual(["#AABBCC"]);
+  });
+
+  it("normalizes a 3-digit shorthand to its 6-digit uppercase form", () => {
+    expect(sanitizeRecentColors(["abc"])).toEqual(["#AABBCC"]);
+  });
+
+  it("deduplicates normalized colors", () => {
+    expect(sanitizeRecentColors(["#ff0000", "#FF0000", "#F00"])).toEqual(["#FF0000"]);
+  });
+
+  it("caps the result at MAX_RECENT_COLORS entries", () => {
+    const input = Array.from({ length: 20 }, (_, i) => `#${i.toString(16).padStart(2, "0")}0000`);
+    const result = sanitizeRecentColors(input);
+    expect(result.length).toBe(MAX_RECENT_COLORS);
+  });
+});
+
+describe("sanitizeColorTarget", () => {
+  it("returns 'fill' for garbage input", () => {
+    expect(sanitizeColorTarget(undefined)).toBe("fill");
+    expect(sanitizeColorTarget(null)).toBe("fill");
+    expect(sanitizeColorTarget(42)).toBe("fill");
+    expect(sanitizeColorTarget("not-a-target")).toBe("fill");
+  });
+
+  it("passes through 'line' and 'font'", () => {
+    expect(sanitizeColorTarget("line")).toBe("line");
+    expect(sanitizeColorTarget("font")).toBe("font");
+  });
+
+  it("passes through 'fill' explicitly", () => {
+    expect(sanitizeColorTarget("fill")).toBe("fill");
+  });
+});
+
+describe("sanitizePasteParts", () => {
+  it("defaults every field to true for garbage input", () => {
+    expect(sanitizePasteParts(undefined)).toEqual({ fill: true, line: true, font: true, size: true });
+    expect(sanitizePasteParts(null)).toEqual({ fill: true, line: true, font: true, size: true });
+    expect(sanitizePasteParts("not-an-object")).toEqual({ fill: true, line: true, font: true, size: true });
+  });
+
+  it("passes through valid booleans", () => {
+    expect(sanitizePasteParts({ fill: false, line: true, font: false, size: true })).toEqual({
+      fill: false,
+      line: true,
+      font: false,
+      size: true,
+    });
+  });
+
+  it("defaults individual non-boolean fields to true", () => {
+    expect(sanitizePasteParts({ fill: false, line: "no", font: undefined })).toEqual({
+      fill: false,
+      line: true,
+      font: true,
+      size: true,
+    });
   });
 });

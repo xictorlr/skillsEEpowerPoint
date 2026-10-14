@@ -1,6 +1,9 @@
 import {
   DEFAULT_PERSISTED,
+  sanitizeColorTarget,
   sanitizeMatrix,
+  sanitizePasteParts,
+  sanitizeRecentColors,
   sanitizeSlideSizePreset,
   type PersistedOptions,
 } from "./sanitize";
@@ -14,11 +17,20 @@ export function loadPersistedOptions(): PersistedOptions {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return DEFAULT_PERSISTED;
-    // Compatible con el formato antiguo `{ matrix }`: slideSizePreset ausente se sanea a "auto".
-    const parsed = JSON.parse(raw) as { matrix?: unknown; slideSizePreset?: unknown };
+    // Compatible con el formato antiguo `{ matrix }`: los campos ausentes se sanean a sus valores por defecto.
+    const parsed = JSON.parse(raw) as {
+      matrix?: unknown;
+      slideSizePreset?: unknown;
+      recentColors?: unknown;
+      colorTarget?: unknown;
+      pasteParts?: unknown;
+    };
     return {
       matrix: sanitizeMatrix(parsed.matrix),
       slideSizePreset: sanitizeSlideSizePreset(parsed.slideSizePreset),
+      recentColors: sanitizeRecentColors(parsed.recentColors),
+      colorTarget: sanitizeColorTarget(parsed.colorTarget),
+      pasteParts: sanitizePasteParts(parsed.pasteParts),
     };
   } catch {
     return DEFAULT_PERSISTED;

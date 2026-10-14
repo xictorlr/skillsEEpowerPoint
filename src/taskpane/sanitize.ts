@@ -1,4 +1,6 @@
 import type { CommandOptions } from "../commands/types";
+import { normalizeHex } from "../core/color";
+import type { ColorTarget, FormatParts } from "../core/format";
 import type { MatrixOptions } from "../core/geometry";
 import type { SlideSize } from "../core/types";
 
@@ -49,15 +51,59 @@ export function sanitizeSlideSizePreset(input: unknown): SlideSizePreset {
     : "auto";
 }
 
-/** Forma persistida en localStorage (ver settings.ts): matriz + preset de tamaño de diapositiva. */
+/** Número máximo de colores recientes que se recuerdan. */
+export const MAX_RECENT_COLORS = 8;
+
+/** Sanea un valor arbitrario a una lista de colores "#RRGGBB" válidos, sin duplicados y acotada. */
+export function sanitizeRecentColors(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const out: string[] = [];
+  for (const v of input) {
+    if (typeof v !== "string") continue;
+    const hex = normalizeHex(v);
+    if (hex && !out.includes(hex)) out.push(hex);
+    if (out.length === MAX_RECENT_COLORS) break;
+  }
+  return out;
+}
+
+/** Sanea un valor arbitrario a un ColorTarget válido; "fill" si no lo reconoce. */
+export function sanitizeColorTarget(input: unknown): ColorTarget {
+  return input === "line" || input === "font" ? input : "fill";
+}
+
+/** Sanea un valor arbitrario a un FormatParts válido; cada campo ausente o no booleano se asume true. */
+export function sanitizePasteParts(input: unknown): FormatParts {
+  const o = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
+  const b = (v: unknown) => (typeof v === "boolean" ? v : true);
+  return { fill: b(o.fill), line: b(o.line), font: b(o.font), size: b(o.size) };
+}
+
+/** Forma persistida en localStorage (ver settings.ts): matriz, preset de tamaño de diapositiva,
+ *  colores recientes, destino de color y partes a pegar por defecto. */
 export interface PersistedOptions {
   matrix: MatrixOptions;
   slideSizePreset: SlideSizePreset;
+  recentColors: string[];
+  colorTarget: ColorTarget;
+  pasteParts: FormatParts;
 }
 
-export const DEFAULT_PERSISTED: PersistedOptions = { matrix: DEFAULT_MATRIX, slideSizePreset: "auto" };
+export const DEFAULT_PERSISTED: PersistedOptions = {
+  matrix: DEFAULT_MATRIX,
+  slideSizePreset: "auto",
+  recentColors: [],
+  colorTarget: "fill",
+  pasteParts: { fill: true, line: true, font: true, size: true },
+};
 
-/** Convierte las opciones persistidas (ya saneadas) en las CommandOptions que consumen los comandos. */
+/** Convierte las opciones persistidas (ya saneadas) en las CommandOptions que consumen los comandos.
+ *  No incluye `color`: ese se pasa en el momento del clic sobre una muestra. */
 export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
-  return { matrix: persisted.matrix, slideSize: SLIDE_SIZE_PRESETS[persisted.slideSizePreset] };
+  return {
+    matrix: persisted.matrix,
+    slideSize: SLIDE_SIZE_PRESETS[persisted.slideSizePreset],
+    colorTarget: persisted.colorTarget,
+    pasteParts: persisted.pasteParts,
+  };
 }

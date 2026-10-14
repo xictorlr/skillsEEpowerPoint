@@ -86,6 +86,24 @@ Limitaciones de Fase 4:
 - La fila "Tema" solo aparece en PowerPoint con PowerPointApi 1.10; en el resto, Color se queda
   sin esa fila (la paleta fija y los recientes siguen disponibles).
 
+## Comandos (Fases 5 y 6)
+
+**Check:** eliminar los cuadros de texto vacíos de la diapositiva activa o de toda la presentación
+(este segundo, por ser destructivo sobre varias diapositivas a la vez, pide confirmación: pulsa el
+botón una vez para armarlo y una segunda vez en los 5 segundos siguientes para ejecutarlo; cualquier
+otro clic o dejar pasar ese tiempo lo cancela sin cambiar nada); seleccionar las formas que quedan
+fuera de la diapositiva activa; listar las fuentes usadas en todo el mazo.
+
+**Presentation:** abrir una presentación nueva en vacío; exportar las diapositivas seleccionadas a
+una presentación nueva (requiere PowerPoint reciente, PowerPointApi 1.10; en el resto avisa sin
+exportar).
+
+**Wizards:** asistente "Crear agenda" con un título (por defecto "Agenda") y un cuadro de texto con
+una sección por línea; "Crear agenda" inserta una diapositiva por sección justo después de la
+diapositiva activa, cada una con el título y la lista completa de secciones, resaltando la propia
+con el color de énfasis del tema (o un azul por defecto sin PowerPointApi 1.10). El título y las
+secciones se recuerdan entre sesiones.
+
 ## Limitaciones conocidas
 
 - Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
@@ -103,6 +121,15 @@ Limitaciones de Fase 4:
   eliminan párrafos vacíos, esa línea o el cuadro completo pierden formatos mixtos.
 - "Tamaño ±" omite cuadros con tamaños de fuente mixtos.
 - Las siglas pierden las mayúsculas con Tipo oración / Tipo Título.
+- Office.js no expone las notas del orador ni las animaciones: Check no puede detectarlas ni
+  limpiarlas, solo actúa sobre las formas de la diapositiva.
+- Las comprobaciones de Check (cuadros de texto vacíos, formas fuera de la diapositiva, fuentes)
+  no entran dentro de grupos: un cuadro vacío o una forma descolocada dentro de un grupo no se
+  detecta.
+- "Exportar diapositivas seleccionadas" requiere PowerPoint reciente (PowerPointApi 1.10); en el
+  resto, el botón avisa sin exportar.
+- El asistente "Crear agenda" usa cuadros de texto nativos con una maquetación fija, no el diseño
+  del patrón de diapositivas (layout) de la presentación.
 
 ## Desarrollo
 
@@ -129,7 +156,7 @@ declarativos), `src/taskpane` (UI). Diseño completo en `docs/superpowers/specs/
 ## Hoja de ruta
 
 Fase 2 Format + Color (hecho) · Fase 3 Text (hecho) · Fase 4 Navigation & Expert Tools (hecho) ·
-Fase 5 Check + Presentation · Fase 6 Wizards.
+Fase 5 Check + Presentation (hecho) · Fase 6 Wizards (hecho). Todas las fases planeadas están completas.
 
 ## Prueba manual
 
@@ -163,3 +190,17 @@ Tras instalar el add-in, en una presentación de prueba:
    "Traer al frente" / "Enviar al fondo" cambian su apilado; selecciona 2 y "Agrupar", luego "Desagrupar".
    Por último, con una forma seleccionada, cambia X/Y/Ancho/Alto en el inspector y confirma que la forma se
    mueve/escala en consecuencia, y que los campos se actualizan solos al cambiar de selección.
+
+9. **Check/Presentation/Wizards:** en una diapositiva con un cuadro de texto vacío y otro con texto,
+   "Eliminar cuadros de texto vacíos (diapositiva)" borra solo el vacío; añade cuadros vacíos en
+   varias diapositivas y pulsa "Eliminar cuadros de texto vacíos (mazo)": el botón pide confirmación
+   (cambia a "Pulsa de nuevo para confirmar") y solo borra al pulsarlo una segunda vez dentro de los
+   5 segundos; pulsa una vez y espera (o haz clic en otro botón) para comprobar que se cancela sin
+   borrar nada. Con una forma arrastrada fuera del lienzo, "Seleccionar formas fuera de la
+   diapositiva" la selecciona; "Fuentes del mazo" lista las fuentes usadas. "Nueva presentación"
+   abre una presentación en blanco en otra ventana; selecciona 2 diapositivas y "Exportar
+   diapositivas seleccionadas" crea una presentación nueva solo con esas 2 (en PowerPoint sin API
+   1.10 debe avisar en vez de fallar). En Wizards, escribe un título y 5 secciones (una por línea)
+   y pulsa "Crear agenda": deben insertarse 5 diapositivas justo después de la activa, cada una con
+   el título, la lista completa de secciones y su propia sección resaltada con el color de énfasis
+   del tema; cierra y vuelve a abrir el panel y comprueba que el título y las secciones siguen ahí.

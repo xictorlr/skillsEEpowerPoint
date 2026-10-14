@@ -89,6 +89,28 @@ describe("navigation commands", () => {
     expect(ctx.selectedSlideIds).toBeUndefined();
   });
 
+  it("slide-goto with a non-integer gotoSlide (NaN) reports the slide count without selecting", async () => {
+    const ctx = new MockContext([], "", { slides: THREE_SLIDES, activeSlideIndex: 0 });
+    stubPowerPoint(ctx);
+
+    const cmd = findCommand("slide-goto")!;
+    const result = await executeCommand(cmd, { ...DEFAULT_OPTIONS, gotoSlide: NaN });
+
+    expect(result).toEqual({ ok: true, changed: 0, message: "La presentación tiene 3 diapositivas." });
+    expect(ctx.selectedSlideIds).toBeUndefined();
+  });
+
+  it("slide-goto with a fractional gotoSlide (2.5) reports the slide count without selecting", async () => {
+    const ctx = new MockContext([], "", { slides: THREE_SLIDES, activeSlideIndex: 0 });
+    stubPowerPoint(ctx);
+
+    const cmd = findCommand("slide-goto")!;
+    const result = await executeCommand(cmd, { ...DEFAULT_OPTIONS, gotoSlide: 2.5 });
+
+    expect(result).toEqual({ ok: true, changed: 0, message: "La presentación tiene 3 diapositivas." });
+    expect(ctx.selectedSlideIds).toBeUndefined();
+  });
+
   it("slide-goto in range selects the requested slide", async () => {
     const ctx = new MockContext([], "", { slides: THREE_SLIDES, activeSlideIndex: 0 });
     stubPowerPoint(ctx);

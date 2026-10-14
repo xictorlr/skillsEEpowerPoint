@@ -54,6 +54,14 @@ describe("selectSlideByIndex", () => {
     expect(selectSlideByIndex(ctx as never, nav, 2)).toBe(false);
     expect(ctx.selectedSlideIds).toBeUndefined();
   });
+
+  it("returns false and selects nothing for a non-integer index (NaN or fractional)", () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "s1" }, { id: "s2" }] });
+    const nav = { slideId: "s1", index: 0, count: 2, ids: ["s1", "s2"] };
+    expect(selectSlideByIndex(ctx as never, nav, NaN)).toBe(false);
+    expect(selectSlideByIndex(ctx as never, nav, 0.5)).toBe(false);
+    expect(ctx.selectedSlideIds).toBeUndefined();
+  });
 });
 
 describe("readSlideShapes", () => {

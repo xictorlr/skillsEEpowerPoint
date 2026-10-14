@@ -9,6 +9,7 @@ import {
   ungroupShapes,
 } from "../office/navigation";
 import { applyBoundingBox, boundingBox, filterByKind, filterByName, numberedNames, zOrderApplyOrder, type ZOrderOp } from "../core/expert";
+import type { Rect } from "../core/types";
 import type { ActionCommand } from "./types";
 
 /** `select-kind`: selecciona las formas de la diapositiva activa que coinciden con `options.shapeKind`. */
@@ -23,13 +24,17 @@ const selectKind: ActionCommand = {
     const nav = await readSlideNav(context);
     const shapes = await readSlideShapes(context, nav.slideId);
     const filtered = filterByKind(shapes, options.shapeKind);
+    // Si no hay coincidencias, no se toca la selección actual (ni se llama a selectShapes ni se
+    // paga el sync de escritura): el usuario no espera perder su selección por un filtro que no
+    // encontró nada.
+    if (filtered.length === 0) return { changed: 0, message: "No hay formas de ese tipo." };
     selectShapes(
       context,
       nav.slideId,
       filtered.map((s) => s.id),
     );
     await context.sync();
-    return { changed: filtered.length, message: filtered.length === 0 ? "No hay formas de ese tipo." : undefined };
+    return { changed: filtered.length };
   },
 };
 
@@ -46,13 +51,15 @@ const selectByName: ActionCommand = {
     const nav = await readSlideNav(context);
     const shapes = await readSlideShapes(context, nav.slideId);
     const filtered = filterByName(shapes, options.nameFilter);
+    // Igual que select-kind: sin coincidencias, no se toca la selección actual.
+    if (filtered.length === 0) return { changed: 0, message: "Ninguna forma coincide con ese nombre." };
     selectShapes(
       context,
       nav.slideId,
       filtered.map((s) => s.id),
     );
     await context.sync();
-    return { changed: filtered.length, message: filtered.length === 0 ? "No hay formas de ese tipo." : undefined };
+    return { changed: filtered.length };
   },
 };
 
@@ -66,6 +73,8 @@ const renameNumbered: ActionCommand = {
   minShapes: 1,
   run: async ({ context, selection, proxies, options }) => {
     const names = numberedNames(selection.shapes, options.renamePrefix || "Forma");
+    // Sin nombres que cambiar (todo ya numerado), no hay nada que escribir: evita el sync de escritura.
+    if (names.length === 0) return { changed: 0 };
     renameShapes(proxies, names);
     await context.sync();
     return { changed: names.length };
@@ -125,6 +134,17 @@ const ungroup: ActionCommand = {
   },
 };
 
+/** Descarta las claves con valor `undefined` de un `Partial<Rect>` (p. ej. los campos del
+ *  inspector que el usuario no tocó): evita que un spread sobrescriba un campo de la caja
+ *  envolvente actual con `undefined`, lo que invalidaría el resto del cálculo. */
+function definedRectFields(partial: Partial<Rect>): Partial<Rect> {
+  const out: Partial<Rect> = {};
+  for (const [key, value] of Object.entries(partial) as Array<[keyof Rect, number | undefined]>) {
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
+}
+
 /** `inspector-apply`: mueve/escala la selección para que su caja envolvente pase a `options.inspector`. */
 const inspectorApply: ActionCommand = {
   kind: "action",
@@ -136,9 +156,15 @@ const inspectorApply: ActionCommand = {
   run: async ({ context, selection, proxies, options }) => {
     const bbox = boundingBox(selection.shapes);
     if (!bbox) return { changed: 0 };
-    const target = { ...bbox, ...options.inspector };
+    const inspector = definedRectFields(options.inspector ?? {});
+    const target = { ...bbox, ...inspector };
     const patches = applyBoundingBox(selection.shapes, target);
-    if (patches.length === 0) return { changed: 0 };
+    if (patches.length === 0) {
+      // Si el usuario dio algún valor y aun así no hay nada que escribir, lo más probable es que
+      // ese valor sea inválido (p. ej. un ancho 0 sobre un eje real, o un NaN): avisa en vez de
+      // fallar en silencio. Sin valores del inspector, es un no-op legítimo (sin mensaje).
+      return Object.keys(inspector).length > 0 ? { changed: 0, message: "Valores del inspector no válidos." } : { changed: 0 };
+    }
     applyPatches(proxies, patches);
     await context.sync();
     return { changed: patches.length };

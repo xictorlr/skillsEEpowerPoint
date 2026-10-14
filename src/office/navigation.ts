@@ -43,11 +43,12 @@ export async function readSlideNav(context: PowerPoint.RequestContext): Promise<
 
 /**
  * Selecciona la diapositiva en `index` (0..count-1) usando `setSelectedSlides([id])`.
- * Devuelve `false` sin seleccionar nada si `index` está fuera de rango. No hace `sync()`: eso
- * corresponde al llamador.
+ * Devuelve `false` sin seleccionar nada si `index` no es un entero (p. ej. `NaN` de un
+ * `options.gotoSlide` inválido, o un valor fraccionario) o está fuera de rango. No hace `sync()`:
+ * eso corresponde al llamador.
  */
 export function selectSlideByIndex(context: PowerPoint.RequestContext, nav: SlideNav, index: number): boolean {
-  if (index < 0 || index >= nav.count) return false;
+  if (!Number.isInteger(index) || index < 0 || index >= nav.count) return false;
   // El rango ya se validó arriba (0 <= index < nav.count === nav.ids.length).
   context.presentation.setSelectedSlides([nav.ids[index]!]);
   return true;

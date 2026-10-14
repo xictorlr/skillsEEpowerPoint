@@ -42,9 +42,9 @@ describe("applyFormatPatch", () => {
     expect(s.formatWrites).toEqual([
       { path: "fill.setSolidColor", value: "#00FF00" },
       { path: "fill.transparency", value: 0.5 },
-      { path: "lineFormat.visible", value: true },
       { path: "lineFormat.color", value: "#0000FF" },
       { path: "lineFormat.weight", value: 2 },
+      { path: "lineFormat.visible", value: true },
       { path: "font.size", value: 18 },
       { path: "font.bold", value: true },
     ]);
@@ -55,5 +55,17 @@ describe("applyFormatPatch", () => {
     const pic = new MockShape({ id: "p", type: "Image", left: 0, top: 0, width: 1, height: 1, font: null });
     applyFormatPatch(pic as never, { id: "p", fill: { type: "NoFill" }, font: { size: 10 } });
     expect(pic.formatWrites).toEqual([{ path: "fill.clear", value: null }]);
+  });
+
+  it("writes only lineFormat.visible when the patch only toggles visibility", () => {
+    const s = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 20 });
+    applyFormatPatch(s as never, { id: "a", line: { visible: false } });
+    expect(s.formatWrites).toEqual([{ path: "lineFormat.visible", value: false }]);
+  });
+
+  it("does not write fill.transparency when clearing to NoFill, even if transparency is also in the patch", () => {
+    const s = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 20 });
+    applyFormatPatch(s as never, { id: "a", fill: { type: "NoFill", transparency: 0.5 } });
+    expect(s.formatWrites).toEqual([{ path: "fill.clear", value: null }]);
   });
 });

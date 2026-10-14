@@ -64,11 +64,13 @@ export function applyFormatPatch(shape: PowerPoint.Shape, patch: FormatPatch): v
   }
   if (patch.line) {
     const l = patch.line;
-    if (l.visible != null) shape.lineFormat.visible = l.visible;
+    // `visible` se escribe al final: en Office.js, alternar la visibilidad de la línea puede
+    // resetear color/peso/estilo/transparencia, así que esos campos deben aplicarse antes.
     if (l.color) shape.lineFormat.color = l.color;
     if (l.weight != null) shape.lineFormat.weight = l.weight;
     if (l.dashStyle) shape.lineFormat.dashStyle = l.dashStyle as PowerPoint.ShapeLineDashStyle;
     if (l.transparency != null) shape.lineFormat.transparency = l.transparency;
+    if (l.visible != null) shape.lineFormat.visible = l.visible;
   }
   if (patch.font && hasTextFrameByType(String(shape.type))) {
     const f = shape.textFrame.textRange.font;

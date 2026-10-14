@@ -121,7 +121,10 @@ function linePart(line: LineFormat): Partial<LineFormat> | undefined {
 /**
  * Pega las partes indicadas del formato `source` en cada `target`. No excluye al propio `source`:
  * los ids de forma pueden repetirse entre diapositivas, y volver a escribir su propio formato es
- * inofensivo (si nada cambia, no se genera ningún patch para él).
+ * inofensivo. Ojo: fill/línea/fuente se pegan siempre que se piden y están presentes en `source`
+ * (no se comparan con el valor actual del target); solo `size` se compara con el target y se omite
+ * si ya coincide. Por eso, si `source` aparece también como target (mismo id u objeto) y tiene
+ * algún fill/línea/fuente para pegar, SÍ aparece en los patches devueltos.
  */
 export function buildPastePatches(source: ShapeFormat, targets: ShapeFormat[], parts: FormatParts): FormatPatch[] {
   const fill = parts.fill && source.fill ? fillPart(source.fill) : undefined;

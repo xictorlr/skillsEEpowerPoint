@@ -4,7 +4,7 @@ import {
   buildFormatCaps,
   hasTextFrameByType,
   loadFormatProps,
-  loadPlaceholderFonts,
+  loadPlaceholderFormats,
   placeholderHasText,
   supportsFill,
   supportsLine,
@@ -46,7 +46,7 @@ describe("placeholderHasText", () => {
   });
 });
 
-describe("loadFormatProps / loadPlaceholderFonts / buildFormatCaps", () => {
+describe("loadFormatProps / loadPlaceholderFormats / buildFormatCaps", () => {
   it("loads fill/line/font for a text shape and reports its capabilities", () => {
     const box = new MockShape({
       id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 20,
@@ -93,26 +93,62 @@ describe("loadFormatProps / loadPlaceholderFonts / buildFormatCaps", () => {
     await ctx.sync();
   });
 
-  it("defers the font for a placeholder until phase 3, and skips it when its content isn't text", () => {
-    const imagePh = new MockShape({ id: "p1", type: "Placeholder", left: 0, top: 0, width: 1, height: 1, containedType: "Image" });
-    const textPh = new MockShape({ id: "p2", type: "Placeholder", left: 0, top: 0, width: 1, height: 1, containedType: null,
+  it("phase 2 loads only placeholderFormat.containedType for a placeholder (no fill/line/font yet)", () => {
+    const ph = new MockShape({ id: "p", type: "Placeholder", left: 0, top: 0, width: 1, height: 1, containedType: "Image",
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
       font: { name: "Arial", size: 10, color: "#000000", bold: false, italic: false, underline: "None" } });
+    const placeholders = loadFormatProps([ph] as never);
+    expect(placeholders).toEqual([ph]);
+    expect(ph.fillLoaded).toBe(false);
+    expect(ph.lineLoaded).toBe(false);
+    expect(ph.fontLoaded).toBe(false);
+  });
 
-    const placeholders = loadFormatProps([imagePh, textPh] as never);
-    expect(placeholders).toEqual([imagePh, textPh]);
-    // La fase 2 nunca carga la fuente de un marcador de posición directamente.
-    expect(imagePh.fontLoaded).toBe(false);
-    expect(textPh.fontLoaded).toBe(false);
+  it("a placeholder containing a table has no fill, line or font (and none of them get loaded)", () => {
+    const ph = new MockShape({ id: "p", type: "Placeholder", left: 0, top: 0, width: 1, height: 1, containedType: "Table",
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
+      font: { name: "Arial", size: 10, color: "#000000", bold: false, italic: false, underline: "None" } });
+    const placeholders = loadFormatProps([ph] as never);
+    loadPlaceholderFormats(placeholders);
+    expect(ph.fillLoaded).toBe(false);
+    expect(ph.lineLoaded).toBe(false);
+    expect(ph.fontLoaded).toBe(false);
 
-    loadPlaceholderFonts(placeholders);
-    expect(imagePh.fontLoaded).toBe(false); // contenido Image: sin marco de texto
-    expect(textPh.fontLoaded).toBe(true); // contenido null: se asume texto
+    const caps = buildFormatCaps([ph] as never);
+    expect(caps.get("p")).toEqual({ fill: false, line: false, font: false });
+    expect(toShapeFormat(ph as never, caps.get("p") as FormatCaps)).toEqual({
+      id: "p", fill: null, line: null, font: null, size: { width: 1, height: 1 },
+    });
+  });
 
-    const caps = buildFormatCaps([imagePh, textPh] as never);
-    expect(caps.get("p1")?.font).toBe(false);
-    expect(caps.get("p2")?.font).toBe(true);
-    expect(toShapeFormat(imagePh as never, caps.get("p1") as FormatCaps).font).toBeNull();
-    expect(toShapeFormat(textPh as never, caps.get("p2") as FormatCaps).font?.name).toBe("Arial");
+  it("a placeholder with no decided content (containedType null) behaves like a geometric shape: fill, line and font all load", () => {
+    const ph = new MockShape({ id: "p", type: "Placeholder", left: 0, top: 0, width: 1, height: 1, containedType: null,
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
+      font: { name: "Arial", size: 10, color: "#000000", bold: false, italic: false, underline: "None" } });
+    const placeholders = loadFormatProps([ph] as never);
+    loadPlaceholderFormats(placeholders);
+    expect(ph.fillLoaded).toBe(true);
+    expect(ph.lineLoaded).toBe(true);
+    expect(ph.fontLoaded).toBe(true);
+
+    const caps = buildFormatCaps([ph] as never);
+    expect(caps.get("p")).toEqual({ fill: true, line: true, font: true });
+    expect(toShapeFormat(ph as never, caps.get("p") as FormatCaps).font?.name).toBe("Arial");
+  });
+
+  it("a placeholder containing an image loads fill and line but not font", () => {
+    const ph = new MockShape({ id: "p", type: "Placeholder", left: 0, top: 0, width: 1, height: 1, containedType: "Image",
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
+      font: { name: "Arial", size: 10, color: "#000000", bold: false, italic: false, underline: "None" } });
+    const placeholders = loadFormatProps([ph] as never);
+    loadPlaceholderFormats(placeholders);
+    expect(ph.fillLoaded).toBe(true);
+    expect(ph.lineLoaded).toBe(true);
+    expect(ph.fontLoaded).toBe(false);
+
+    const caps = buildFormatCaps([ph] as never);
+    expect(caps.get("p")).toEqual({ fill: true, line: true, font: false });
+    expect(toShapeFormat(ph as never, caps.get("p") as FormatCaps).font).toBeNull();
   });
 
   it("maps unknown fill types to Other and NoFill to NoFill", () => {

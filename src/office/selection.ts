@@ -1,6 +1,6 @@
 import type { ShapeFormat } from "../core/format";
 import type { SelectionContext, ShapeModel, SlideSize } from "../core/types";
-import { buildFormatCaps, loadFormatProps, loadPlaceholderFonts, toShapeFormat, type FormatCaps } from "./format";
+import { buildFormatCaps, loadFormatProps, loadPlaceholderFormats, toShapeFormat, type FormatCaps } from "./format";
 import { DEFAULT_SLIDE_SIZE, getSlideSize } from "./slideSize";
 
 export interface ReadSelectionDeps {
@@ -33,10 +33,11 @@ const SHAPE_PROPS = "items/id,items/name,items/type,items/left,items/top,items/w
  *
  * Sincronización:
  * - Sync 1: siempre. Geometría + tipo de cada forma.
- * - Sync 2: solo si `withFormat`. Carga fill/lineFormat/fuente según el tipo de cada forma (y, para
- *   los marcadores de posición, `placeholderFormat.containedType`, sin la fuente todavía).
+ * - Sync 2: solo si `withFormat`. Carga fill/lineFormat/fuente según el tipo de cada forma; para los
+ *   marcadores de posición carga únicamente `placeholderFormat.containedType` (su fill/línea/fuente
+ *   dependen de lo que contienen, que todavía no se conoce).
  * - Sync 3: solo si `withFormat` y hubo al menos un marcador de posición. Con `containedType` ya
- *   conocido, carga la fuente de los que tienen texto.
+ *   conocido, carga fill/línea/fuente de cada uno según lo que de verdad contiene.
  * - `getSlideSize` puede hacer un sync adicional la primera vez, salvo que `withSlideSize` sea false
  *   o se pase `slideSizeOverride`.
  */
@@ -50,7 +51,7 @@ export async function readSelection(context: PowerPoint.RequestContext, deps: Re
     const placeholders = loadFormatProps(collection.items);
     await context.sync();
     if (placeholders.length > 0) {
-      loadPlaceholderFonts(placeholders);
+      loadPlaceholderFormats(placeholders);
       await context.sync();
     }
     caps = buildFormatCaps(collection.items);

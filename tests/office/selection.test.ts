@@ -113,22 +113,42 @@ describe("readSelection", () => {
     expect(formats).toEqual([{ id: "g", fill: null, line: null, font: null, size: { width: 5, height: 5 } }]);
   });
 
-  it("does a third sync for placeholders, and skips the font when their content isn't text", async () => {
+  it("does a third sync for placeholders: an image-contained one loads fill+line but skips the font", async () => {
     const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: "Image",
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
       font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
     const ctx = new MockContext([ph], "bad-png");
     const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), withFormat: true, withSlideSize: false });
     expect(ctx.syncCount).toBe(3);
+    expect(ph.fillLoaded).toBe(true);
+    expect(ph.lineLoaded).toBe(true);
     expect(ph.fontLoaded).toBe(false);
+    expect(formats[0]?.fill).not.toBeNull();
     expect(formats[0]?.font).toBeNull();
   });
 
-  it("loads and returns the font for a placeholder whose content is text (containedType null)", async () => {
-    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: null,
+  it("a placeholder containing a table has no fill, line or font at all (3 syncs, nothing loaded in phase 3)", async () => {
+    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: "Table",
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
       font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
     const ctx = new MockContext([ph], "bad-png");
     const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), withFormat: true, withSlideSize: false });
     expect(ctx.syncCount).toBe(3);
+    expect(ph.fillLoaded).toBe(false);
+    expect(ph.lineLoaded).toBe(false);
+    expect(ph.fontLoaded).toBe(false);
+    expect(formats).toEqual([{ id: "ph", fill: null, line: null, font: null, size: { width: 10, height: 10 } }]);
+  });
+
+  it("loads fill, line and font for a placeholder with no decided content yet (containedType null)", async () => {
+    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: null,
+      fill: { type: "Solid", foregroundColor: "#FF0000", transparency: 0 },
+      font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
+    const ctx = new MockContext([ph], "bad-png");
+    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), withFormat: true, withSlideSize: false });
+    expect(ctx.syncCount).toBe(3);
+    expect(ph.fillLoaded).toBe(true);
+    expect(ph.lineLoaded).toBe(true);
     expect(ph.fontLoaded).toBe(true);
     expect(formats[0]?.font?.name).toBe("Arial");
   });

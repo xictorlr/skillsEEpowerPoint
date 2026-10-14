@@ -47,35 +47,50 @@ export interface FormatCaps {
 }
 
 /**
+ * Un marcador de posición no expone `fill`/`lineFormat`/`textFrame` según su propio tipo ("Placeholder"),
+ * sino según lo que de verdad contiene: un marcador vacío o de contenido libre aún sin decidir se
+ * comporta como una forma geométrica; uno de imagen, tabla, gráfico… como esa forma. `containedType`
+ * null/undefined (contenido aún no decidido) se asume forma geométrica.
+ */
+function placeholderInnerType(containedType: string | null | undefined): string {
+  return containedType ?? "GeometricShape";
+}
+
+/**
  * Fase 2 de la lectura de formato: para cada forma, según su tipo, encola la carga de `fill`/
  * `lineFormat` y, en formas de texto que no son marcador de posición, de la fuente. Para los
- * marcadores de posición encola `placeholderFormat.containedType` pero NO la fuente todavía (su
- * marco de texto depende de un valor que aún no se conoce; ver `loadPlaceholderFonts`). Devuelve los
- * marcadores de posición encontrados, para la fase 3. Requiere un sync posterior.
+ * marcadores de posición encola ÚNICAMENTE `placeholderFormat.containedType`: su capacidad real de
+ * fill/línea/fuente depende de su contenido, que todavía no se conoce (ver `loadPlaceholderFormats`,
+ * fase 3). Devuelve los marcadores de posición encontrados, para la fase 3. Requiere un sync posterior.
  */
 export function loadFormatProps(shapes: PowerPoint.Shape[]): PowerPoint.Shape[] {
   const placeholders: PowerPoint.Shape[] = [];
   for (const s of shapes) {
     const type = String(s.type);
-    if (supportsFill(type)) s.fill.load(FILL_PROPS);
-    if (supportsLine(type)) s.lineFormat.load(LINE_PROPS);
     if (type === "Placeholder") {
       s.placeholderFormat.load(PLACEHOLDER_PROPS);
       placeholders.push(s);
-    } else if (hasTextFrameByType(type)) {
-      s.textFrame.textRange.font.load(FONT_PROPS);
+      continue;
     }
+    if (supportsFill(type)) s.fill.load(FILL_PROPS);
+    if (supportsLine(type)) s.lineFormat.load(LINE_PROPS);
+    if (hasTextFrameByType(type)) s.textFrame.textRange.font.load(FONT_PROPS);
   }
   return placeholders;
 }
 
 /**
  * Fase 3, solo si la fase 2 encontró marcadores de posición: una vez conocido `containedType`,
- * encola la fuente de los que tienen texto. Requiere un sync posterior.
+ * encola fill/línea/fuente de cada uno según lo que de verdad contiene (ver `placeholderInnerType`
+ * y `placeholderHasText`). Requiere un sync posterior.
  */
-export function loadPlaceholderFonts(placeholders: PowerPoint.Shape[]): void {
+export function loadPlaceholderFormats(placeholders: PowerPoint.Shape[]): void {
   for (const p of placeholders) {
-    if (placeholderHasText(p.placeholderFormat.containedType)) p.textFrame.textRange.font.load(FONT_PROPS);
+    const containedType = p.placeholderFormat.containedType;
+    const inner = placeholderInnerType(containedType);
+    if (supportsFill(inner)) p.fill.load(FILL_PROPS);
+    if (supportsLine(inner)) p.lineFormat.load(LINE_PROPS);
+    if (placeholderHasText(containedType)) p.textFrame.textRange.font.load(FONT_PROPS);
   }
 }
 
@@ -84,8 +99,13 @@ export function buildFormatCaps(shapes: PowerPoint.Shape[]): Map<string, FormatC
   const caps = new Map<string, FormatCaps>();
   for (const s of shapes) {
     const type = String(s.type);
-    const font = type === "Placeholder" ? placeholderHasText(s.placeholderFormat.containedType) : hasTextFrameByType(type);
-    caps.set(s.id, { fill: supportsFill(type), line: supportsLine(type), font });
+    if (type === "Placeholder") {
+      const containedType = s.placeholderFormat.containedType;
+      const inner = placeholderInnerType(containedType);
+      caps.set(s.id, { fill: supportsFill(inner), line: supportsLine(inner), font: placeholderHasText(containedType) });
+    } else {
+      caps.set(s.id, { fill: supportsFill(type), line: supportsLine(type), font: hasTextFrameByType(type) });
+    }
   }
   return caps;
 }

@@ -47,7 +47,7 @@ export const icons: Record<string, string> = {
   caseUpper: `<svg ${S}><text x="2" y="12" font-size="8" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">AA</text></svg>`,
   caseLower: `<svg ${S}><text x="2" y="12" font-size="8" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">aa</text></svg>`,
   caseSentence: `<svg ${S}><text x="2" y="12" font-size="8" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">Aa</text></svg>`,
-  caseTitle: `<svg ${S}><text x="1" y="12" font-size="8" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">Aa Aa</text></svg>`,
+  caseTitle: `<svg ${S}><text x="2" y="12" font-size="8" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">Ab</text><path d="M2 14h5" ${REF}/></svg>`,
   fontBigger: `<svg ${S}><text x="1" y="13" font-size="10" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">A</text><path d="M12 2v5M9.5 4.5h5" ${REF}/></svg>`,
   fontSmaller: `<svg ${S}><text x="1" y="13" font-size="10" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">A</text><path d="M9.5 4.5h5" ${REF}/></svg>`,
   paraLeft: `<svg ${S}>${box(2, 3, 12, 2)}${box(2, 7, 8, 2)}${box(2, 11, 10, 2)}</svg>`,

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeCommand, resetSlideSizeCache } from "../../src/commands/execute";
-import { commands, findCommand } from "../../src/commands/registry";
+import { commands, commandsBySection, findCommand } from "../../src/commands/registry";
 import type { CommandOptions } from "../../src/commands/types";
 import type { TextShape } from "../../src/core/text";
 import { MockContext, MockShape } from "../office/mockPowerPoint";
@@ -61,6 +61,41 @@ describe("text commands", () => {
     const r = await executeCommand(findCommand("case-upper")!, OPTS);
 
     expect(r).toEqual({ ok: true, changed: 0, message: "La selección no tiene texto." });
+  });
+
+  it("registers the 21 text commands in the section, in order", () => {
+    expect(commandsBySection("text").map((c) => c.id)).toEqual([
+      "case-upper", "case-lower", "case-sentence", "case-title",
+      "font-bigger", "font-smaller",
+      "para-left", "para-center", "para-right", "para-justify",
+      "valign-top", "valign-middle", "valign-bottom",
+      "margins-zero", "margins-standard",
+      "autosize-none", "autosize-shrink", "autosize-shape",
+      "wrap-on", "wrap-off",
+      "clean-text",
+    ]);
+  });
+
+  it("font-smaller subtracts fontSizeStep points from font.size", async () => {
+    const a = textBox("a"); // tamaño de fuente por defecto del mock: 18
+    ctx = new MockContext([a], "bad-png");
+
+    const r = await executeCommand(findCommand("font-smaller")!, { ...OPTS, fontSizeStep: 2 });
+
+    expect(r).toEqual({ ok: true, changed: 1 });
+    expect(a.formatWrites).toContainEqual({ path: "font.size", value: 16 });
+  });
+
+  it("reports changed:0 with no message when there is text but no applicable change (mixed/null font size)", async () => {
+    const a = new MockShape({
+      id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 10,
+      font: { name: "Arial", size: null, color: "#000000", bold: false, italic: false, underline: "None" },
+    });
+    ctx = new MockContext([a], "bad-png");
+
+    const r = await executeCommand(findCommand("font-bigger")!, OPTS);
+
+    expect(r).toEqual({ ok: true, changed: 0 });
   });
 
   it("every text command computes patches referencing only the selected shapes, without throwing", () => {

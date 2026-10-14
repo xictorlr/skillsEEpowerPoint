@@ -70,7 +70,7 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
         return { changed: new Set(patches.map((p) => p.id)).size };
       }
       case "action":
-        return cmd.run({ context, selection, proxies, options });
+        return cmd.run({ context, selection, proxies, options, slideSizeCache });
     }
   });
 }

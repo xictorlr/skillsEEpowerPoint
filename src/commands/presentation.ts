@@ -1,3 +1,4 @@
+import { supportsApi } from "../office/capabilities";
 import { createPresentation, exportSlides } from "../office/deck";
 import type { ActionCommand } from "./types";
 
@@ -16,7 +17,8 @@ const newPresentation: ActionCommand = {
 };
 
 /** `export-selected-slides`: exporta las diapositivas seleccionadas a una presentación nueva
- *  (requiere PowerPointApi 1.10; ver `exportSlides`). */
+ *  (requiere PowerPointApi 1.10; ver `exportSlides`). Comprueba la API antes de cualquier `sync()`:
+ *  sin soporte, no tiene sentido pagar la lectura de la selección. */
 const exportSelectedSlides: ActionCommand = {
   kind: "action",
   id: "export-selected-slides",
@@ -25,10 +27,13 @@ const exportSelectedSlides: ActionCommand = {
   icon: "exportSlides",
   minShapes: 0,
   run: async ({ context }) => {
+    if (!supportsApi("1.10")) return { changed: 0, message: "Exportar requiere PowerPoint reciente (API 1.10)." };
+
     const selected = context.presentation.getSelectedSlides();
     selected.load("items/id");
     await context.sync();
     const ids = selected.items.map((s) => s.id);
+    if (ids.length === 0) return { changed: 0, message: "Selecciona al menos una diapositiva." };
 
     const base64 = await exportSlides(context, ids);
     if (base64 === null) return { changed: 0, message: "Exportar requiere PowerPoint reciente (API 1.10)." };

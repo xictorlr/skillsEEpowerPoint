@@ -61,6 +61,9 @@ export interface ActionContext {
   selection: SelectionContext;
   proxies: Map<string, PowerPoint.Shape>;
   options: CommandOptions;
+  /** Caché compartida de `getSlideSize` (ver `execute.ts`): evita recalcular/re-renderizar el
+   *  tamaño de diapositiva entre comandos de una misma sesión. */
+  slideSizeCache: Map<string, SlideSize>;
 }
 
 interface BaseCommand {

@@ -66,9 +66,9 @@ const checkOffslideSelect: ActionCommand = {
   label: "Seleccionar formas fuera de la diapositiva",
   icon: "offSlide",
   minShapes: 0,
-  run: async ({ context, options }) => {
+  run: async ({ context, options, slideSizeCache }) => {
     const nav = await readSlideNav(context);
-    const size = await getSlideSize(context, new Map(), options.slideSize);
+    const size = await getSlideSize(context, slideSizeCache, options.slideSize);
     const shapes = await readSlideShapes(context, nav.slideId);
     const offSlide = shapes.filter((s) => isOffSlide(s, size));
     if (offSlide.length === 0) return { changed: 0, message: "No hay formas fuera de la diapositiva." };
@@ -83,7 +83,11 @@ const checkOffslideSelect: ActionCommand = {
   },
 };
 
-/** `check-fonts`: lista los nombres de fuente distintos usados en todo el mazo (máx. 12, luego "…"). */
+/** `check-fonts`: lista los nombres de fuente distintos usados en todo el mazo (máx. 12, luego "…").
+ *  Una forma con fuente mixta dentro de su propio texto (p. ej. dos fragmentos con fuentes
+ *  distintas en el mismo cuadro) reporta `font.name === null` (comportamiento de Office.js para
+ *  rangos con formato no uniforme); `readFontName`/`distinctFonts` la tratan igual que una forma
+ *  sin fuente y la omiten del listado, sin que eso cuente como error. */
 const checkFonts: ActionCommand = {
   kind: "action",
   id: "check-fonts",
@@ -98,6 +102,8 @@ const checkFonts: ActionCommand = {
     await context.sync();
 
     const names = distinctFonts(ids.map((id) => readFontName(proxies.get(id)!)));
+    if (names.length === 0) return { changed: 0, message: "No hay texto en la presentación." };
+
     const shown = names.length > MAX_FONTS_SHOWN ? [...names.slice(0, MAX_FONTS_SHOWN), "…"] : names;
     return { changed: 0, message: `Fuentes: ${shown.join(", ")}` };
   },

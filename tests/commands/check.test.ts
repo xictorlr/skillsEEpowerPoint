@@ -19,6 +19,16 @@ function stubPowerPoint(ctx: MockContext): void {
   vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<unknown>) => fn(ctx) });
 }
 
+function stubOffice1_10(): void {
+  vi.stubGlobal("Office", {
+    context: {
+      requirements: {
+        isSetSupported: (name: string, version: string) => name === "PowerPointApi" && version === "1.10",
+      },
+    },
+  });
+}
+
 describe("check commands", () => {
   beforeEach(() => {
     resetSlideSizeCache();
@@ -91,6 +101,27 @@ describe("check commands", () => {
       expect(result).toEqual({ ok: true, changed: 0, message: "No hay cuadros vacíos." });
       expect(ctx.invalidTouched).toBe(false);
     });
+
+    it("does not delete an empty Placeholder (only TextBox shapes are considered)", async () => {
+      const emptyPlaceholder = new MockShape({
+        id: "ph1",
+        type: "Placeholder",
+        containedType: null, // contenido libre: tiene marco de texto, pero no es un TextBox
+        left: 0,
+        top: 0,
+        width: 10,
+        height: 10,
+        textProps: { hasText: false },
+      });
+      const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [emptyPlaceholder] }] });
+      stubPowerPoint(ctx);
+
+      const cmd = findCommand("check-empty-text-slide")!;
+      const result = await executeCommand(cmd, DEFAULT_OPTIONS);
+
+      expect(result).toEqual({ ok: true, changed: 0, message: "No hay cuadros vacíos." });
+      expect(emptyPlaceholder.formatWrites).not.toContainEqual({ path: "delete", value: null });
+    });
   });
 
   describe("check-empty-text-deck", () => {
@@ -145,6 +176,27 @@ describe("check commands", () => {
       expect(emptyOnSlide2.formatWrites).toContainEqual({ path: "delete", value: null });
       expect(filled.formatWrites).not.toContainEqual({ path: "delete", value: null });
     });
+
+    it("does not delete an empty Placeholder either", async () => {
+      const emptyPlaceholder = new MockShape({
+        id: "ph1",
+        type: "Placeholder",
+        containedType: null,
+        left: 0,
+        top: 0,
+        width: 10,
+        height: 10,
+        textProps: { hasText: false },
+      });
+      const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [emptyPlaceholder] }] });
+      stubPowerPoint(ctx);
+
+      const cmd = findCommand("check-empty-text-deck")!;
+      const result = await executeCommand(cmd, DEFAULT_OPTIONS);
+
+      expect(result).toEqual({ ok: true, changed: 0, message: "No hay cuadros vacíos." });
+      expect(emptyPlaceholder.formatWrites).not.toContainEqual({ path: "delete", value: null });
+    });
   });
 
   describe("check-offslide-select", () => {
@@ -174,6 +226,33 @@ describe("check commands", () => {
 
       expect(result).toEqual({ ok: true, changed: 2, message: "2 forma(s) fuera de la diapositiva seleccionada(s)." });
       expect(ctx.selectedShapeIds).toEqual(["off-right", "off-bottom"]);
+    });
+
+    it("shares the slideSize cache across action-command calls (ctx.slideSizeCache, not a fresh Map per call)", async () => {
+      stubOffice1_10();
+      const inside = new MockShape({ id: "inside", left: 0, top: 0, width: 10, height: 10 });
+      const ctx1 = new MockContext([], "", {
+        slides: [{ id: "sl1", shapes: [inside] }],
+        pageSetup: { slideWidth: 720, slideHeight: 405 },
+      });
+      stubPowerPoint(ctx1);
+
+      const cmd = findCommand("check-offslide-select")!;
+      await executeCommand(cmd, DEFAULT_OPTIONS); // sin override: cachea el tamaño 720x405
+
+      // Un segundo contexto con un pageSetup distinto (e inválido, para forzar el fallback si se
+      // releyera): si la caché se comparte de verdad, este contexto ni siquiera debería tocar
+      // `pageSetup` -- el tamaño cacheado (720x405) decide si la forma queda fuera.
+      const offAt750 = new MockShape({ id: "off-at-750", left: 750, top: 0, width: 10, height: 10 });
+      const ctx2 = new MockContext([], "", {
+        slides: [{ id: "sl1", shapes: [offAt750] }],
+        pageSetup: { slideWidth: 0, slideHeight: 0 },
+      });
+      stubPowerPoint(ctx2);
+
+      const result = await executeCommand(cmd, DEFAULT_OPTIONS);
+
+      expect(result).toEqual({ ok: true, changed: 1, message: "1 forma(s) fuera de la diapositiva seleccionada(s)." });
     });
   });
 
@@ -244,6 +323,48 @@ describe("check commands", () => {
       const message = (result as { ok: true; message?: string }).message!;
       expect(message.endsWith(", …")).toBe(true);
       expect(message.split(", ")).toHaveLength(13); // 12 nombres + "…"
+    });
+
+    it("reports 'no hay texto en la presentación' when no shape has a font name", async () => {
+      const img = new MockShape({ id: "img1", type: "Image", left: 0, top: 0, width: 10, height: 10, font: null });
+      const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [img] }] });
+      stubPowerPoint(ctx);
+
+      const cmd = findCommand("check-fonts")!;
+      const result = await executeCommand(cmd, DEFAULT_OPTIONS);
+
+      expect(result).toEqual({ ok: true, changed: 0, message: "No hay texto en la presentación." });
+    });
+
+    it("does not touch an Image placeholder (no font to read)", async () => {
+      const imagePlaceholder = new MockShape({
+        id: "ph-img",
+        type: "Placeholder",
+        containedType: "Image",
+        left: 0,
+        top: 0,
+        width: 10,
+        height: 10,
+        font: null, // si se tocara su textFrame, el mock marcaría invalidTouched
+      });
+      const textBox = new MockShape({
+        id: "tb1",
+        type: "TextBox",
+        left: 0,
+        top: 0,
+        width: 10,
+        height: 10,
+        font: { name: "Georgia", size: 18, color: "#000", bold: false, italic: false, underline: "None" },
+      });
+      const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [imagePlaceholder, textBox] }] });
+      stubPowerPoint(ctx);
+
+      const cmd = findCommand("check-fonts")!;
+      const result = await executeCommand(cmd, DEFAULT_OPTIONS);
+
+      expect(result).toEqual({ ok: true, changed: 0, message: "Fuentes: Georgia" });
+      expect(imagePlaceholder.loads).toEqual([]);
+      expect(ctx.invalidTouched).toBe(false);
     });
   });
 });

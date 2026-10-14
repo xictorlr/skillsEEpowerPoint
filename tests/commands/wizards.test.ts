@@ -137,4 +137,50 @@ describe("wizards commands", () => {
     const [, item1] = shapesOf(slide1);
     expect(item1!.formatWrites).toContainEqual({ path: "font.color", value: "#00AA00" });
   });
+
+  it("passes the blank layout id (found via findBlankLayoutId) to each slides.add call", async () => {
+    // Mock por defecto: layouts = [{ id: "lay-title", ... }, { id: "lay-blank", name: "Blank" }].
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1" }] });
+    stubPowerPoint(ctx);
+
+    const cmd = findCommand("agenda-create")!;
+    await executeCommand(cmd, { ...DEFAULT_OPTIONS, agenda: { title: "Plan", sectionsText: "Uno\nDos" } });
+
+    const addCalls = ctx.calls.filter((c) => c.path === "slides.add");
+    expect(addCalls).toHaveLength(2);
+    expect(addCalls.every((c) => (c.value as { layoutId?: string } | undefined)?.layoutId === "lay-blank")).toBe(true);
+  });
+
+  it("without a blank layout (layouts: []), deletes the placeholders of every newly created slide", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1" }], layouts: [], newSlidePlaceholders: 2 });
+    stubPowerPoint(ctx);
+
+    const cmd = findCommand("agenda-create")!;
+    await executeCommand(cmd, { ...DEFAULT_OPTIONS, agenda: { title: "Plan", sectionsText: "Uno" } });
+
+    // slides.add no debe llevar layoutId (ninguno encontrado).
+    const addCalls = ctx.calls.filter((c) => c.path === "slides.add");
+    expect(addCalls).toEqual([{ id: "presentation", path: "slides.add", value: undefined }]);
+
+    const slide1 = ctx.slidesList.find((s) => s.id === "new-slide-1")!;
+    const placeholders = shapesOf(slide1).filter((s) => s.type === "Placeholder");
+    expect(placeholders).toHaveLength(2);
+    for (const ph of placeholders) {
+      expect(ph.formatWrites).toContainEqual({ path: "delete", value: null });
+    }
+    // La diapositiva conserva, además, los cuadros propios de la agenda (título + 1 ítem).
+    expect(shapesOf(slide1).filter((s) => s.type === "TextBox")).toHaveLength(2);
+  });
+
+  it("with the active slide at index 1 of 3, inserts sections sequentially right after it (moveTo 2, 3, 4)", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1" }, { id: "sl2" }, { id: "sl3" }], activeSlideIndex: 1 });
+    stubPowerPoint(ctx);
+
+    const cmd = findCommand("agenda-create")!;
+    const result = await executeCommand(cmd, { ...DEFAULT_OPTIONS, agenda: { title: "Plan", sectionsText: "Uno\nDos\nTres" } });
+
+    expect(result).toEqual({ ok: true, changed: 3, message: "3 diapositiva(s) de agenda creada(s)." });
+    const moveToCalls = ctx.calls.filter((c) => c.path === "moveTo");
+    expect(moveToCalls.map((c) => c.value)).toEqual([2, 3, 4]);
+  });
 });

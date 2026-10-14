@@ -58,7 +58,7 @@ describe("presentation commands", () => {
   });
 
   describe("export-selected-slides", () => {
-    it("without PowerPointApi 1.10, reports that a recent PowerPoint is required", async () => {
+    it("without PowerPointApi 1.10, reports that a recent PowerPoint is required, without syncing at all", async () => {
       const ctx = new MockContext([], "", { slides: [{ id: "sl1" }] });
       const createPresentationMock = stubPowerPoint(ctx);
 
@@ -66,6 +66,23 @@ describe("presentation commands", () => {
       const result = await executeCommand(cmd, DEFAULT_OPTIONS);
 
       expect(result).toEqual({ ok: true, changed: 0, message: "Exportar requiere PowerPoint reciente (API 1.10)." });
+      expect(createPresentationMock).not.toHaveBeenCalled();
+      // El único sync es el de la lectura común de la selección (execute.ts, previo a cmd.run); el
+      // comando en sí no añade ninguno: la comprobación de la API va antes de leer la selección de
+      // diapositivas.
+      expect(ctx.syncCount).toBe(1);
+    });
+
+    it("with PowerPointApi 1.10 but no slide selected, reports a validation message", async () => {
+      stubOffice1_10();
+      // activeSlideIndex fuera de rango: simula que getSelectedSlides() no devuelve nada.
+      const ctx = new MockContext([], "", { slides: [{ id: "sl1" }], activeSlideIndex: 5 });
+      const createPresentationMock = stubPowerPoint(ctx);
+
+      const cmd = findCommand("export-selected-slides")!;
+      const result = await executeCommand(cmd, DEFAULT_OPTIONS);
+
+      expect(result).toEqual({ ok: true, changed: 0, message: "Selecciona al menos una diapositiva." });
       expect(createPresentationMock).not.toHaveBeenCalled();
     });
 

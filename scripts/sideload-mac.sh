@@ -2,8 +2,13 @@
 # Copia un manifest a la carpeta de add-ins sideloaded de PowerPoint para Mac.
 set -euo pipefail
 MANIFEST="${1:-manifest.xml}"
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "No existe $MANIFEST. Ejecuta: npm run manifest:dev"
+  exit 1
+fi
 WEF="$HOME/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef"
 mkdir -p "$WEF"
 cp "$MANIFEST" "$WEF/slide-tools-$(basename "$MANIFEST")"
 echo "Copiado a: $WEF"
 echo "Reinicia PowerPoint y abre Insertar > Complementos > Mis complementos > Complementos para desarrolladores."
+echo "Si persiste una versión antigua, borra ~/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches/Wef"

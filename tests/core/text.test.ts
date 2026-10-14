@@ -4,7 +4,7 @@ import {
   fontSizePresetPatches, indentPatches, marginPatches, paragraphAlignPatches, splitLines,
   toggleBoldPatches, toggleBulletsPatches, toggleItalicPatches, toggleStrikethroughPatches, toggleUnderlinePatches,
   verticalAlignPatches, wordWrapPatches,
-  STANDARD_MARGINS, ZERO_MARGINS, type TextShape,
+  STANDARD_MARGINS, ZERO_MARGINS, type TextPatch, type TextShape,
 } from "../../src/core/text";
 
 function ts(id: string, over: Partial<TextShape> = {}): TextShape {
@@ -201,69 +201,76 @@ describe("patch generators", () => {
   });
 });
 
-describe("style toggle generators", () => {
-  it("toggleBoldPatches: all true -> all false", () => {
-    expect(toggleBoldPatches([ts("a", { bold: true }), ts("b", { bold: true })])).toEqual([
-      { id: "a", bold: false },
-      { id: "b", bold: false },
+type BoolToggleField = "bold" | "italic" | "strikethrough" | "bulletsVisible";
+
+const BOOLEAN_TOGGLES: Array<{ name: string; field: BoolToggleField; toggle: (shapes: TextShape[]) => TextPatch[] }> = [
+  { name: "toggleBoldPatches", field: "bold", toggle: toggleBoldPatches },
+  { name: "toggleItalicPatches", field: "italic", toggle: toggleItalicPatches },
+  { name: "toggleStrikethroughPatches", field: "strikethrough", toggle: toggleStrikethroughPatches },
+  { name: "toggleBulletsPatches", field: "bulletsVisible", toggle: toggleBulletsPatches },
+];
+
+describe.each(BOOLEAN_TOGGLES)("$name", ({ field, toggle }) => {
+  it("(a) all non-null values are true -> every shape is patched to false", () => {
+    expect(toggle([ts("a", { [field]: true }), ts("b", { [field]: true })])).toEqual([
+      { id: "a", [field]: false },
+      { id: "b", [field]: false },
     ]);
   });
-  it("toggleBoldPatches: mixed -> all true, skipping shapes already true", () => {
-    expect(toggleBoldPatches([ts("a", { bold: true }), ts("b", { bold: false })])).toEqual([
-      { id: "b", bold: true },
+  it("(b) mixed -> every shape is patched to true, except shapes already true (no patch)", () => {
+    expect(toggle([ts("a", { [field]: true }), ts("b", { [field]: false })])).toEqual([
+      { id: "b", [field]: true },
     ]);
   });
-  it("toggleBoldPatches: all false -> all true", () => {
-    expect(toggleBoldPatches([ts("a", { bold: false }), ts("b", { bold: false })])).toEqual([
-      { id: "a", bold: true },
-      { id: "b", bold: true },
-    ]);
-  });
-  it("toggleBoldPatches: null values are ignored when deciding the target, but always receive a patch", () => {
+  it("(c) null values are ignored when deciding the target, but always receive a patch", () => {
     // Única forma no nula ("a") es true -> destino false; "a" cambia y el null "b" siempre recibe parche.
-    expect(toggleBoldPatches([ts("a", { bold: true }), ts("b", { bold: null })])).toEqual([
-      { id: "a", bold: false },
-      { id: "b", bold: false },
+    expect(toggle([ts("a", { [field]: true }), ts("b", { [field]: null })])).toEqual([
+      { id: "a", [field]: false },
+      { id: "b", [field]: false },
     ]);
-    expect(toggleBoldPatches([ts("a", { bold: null })])).toEqual([{ id: "a", bold: true }]);
+    // Todas nulas -> sin valores conocidos, destino true; la (única) forma nula siempre recibe parche.
+    expect(toggle([ts("a", { [field]: null })])).toEqual([{ id: "a", [field]: true }]);
   });
-  it("toggleBoldPatches on an empty list returns []", () => {
-    expect(toggleBoldPatches([])).toEqual([]);
+  it("all false -> every shape is patched to true", () => {
+    expect(toggle([ts("a", { [field]: false }), ts("b", { [field]: false })])).toEqual([
+      { id: "a", [field]: true },
+      { id: "b", [field]: true },
+    ]);
   });
+  it("empty list returns []", () => {
+    expect(toggle([])).toEqual([]);
+  });
+});
 
-  it("toggleItalicPatches and toggleStrikethroughPatches follow the same semantics", () => {
-    expect(toggleItalicPatches([ts("a", { italic: true }), ts("b", { italic: true })])).toEqual([
-      { id: "a", italic: false },
-      { id: "b", italic: false },
-    ]);
-    expect(toggleStrikethroughPatches([ts("a", { strikethrough: false })])).toEqual([
-      { id: "a", strikethrough: true },
-    ]);
-  });
-
-  it("toggleBulletsPatches follows the same semantics", () => {
-    expect(toggleBulletsPatches([ts("a", { bulletsVisible: true }), ts("b", { bulletsVisible: false })])).toEqual([
-      { id: "b", bulletsVisible: true },
-    ]);
-  });
-
-  it("toggleUnderlinePatches: all 'on' (non-\"None\") -> all \"None\"", () => {
+describe("toggleUnderlinePatches", () => {
+  it("(a) all non-null values are 'on' (!== \"None\") -> every shape is patched to \"None\"", () => {
     expect(toggleUnderlinePatches([ts("a", { underline: "Single" }), ts("b", { underline: "Double" })])).toEqual([
       { id: "a", underline: "None" },
       { id: "b", underline: "None" },
     ]);
   });
-  it("toggleUnderlinePatches: mixed -> all \"Single\", skipping shapes already on (even if not literally \"Single\")", () => {
+  it("(b) mixed -> every shape is patched to \"Single\", except shapes already on (no patch, even if not literally \"Single\")", () => {
     expect(toggleUnderlinePatches([ts("a", { underline: "Double" }), ts("b", { underline: "None" })])).toEqual([
       { id: "b", underline: "Single" },
     ]);
   });
-  it("toggleUnderlinePatches: null values are ignored for the target decision, but always receive a patch", () => {
+  it("(c) null values are ignored when deciding the target, but always receive a patch", () => {
     // Única forma no nula ("a") está "on" -> destino "None"; "a" cambia y el null "b" siempre recibe parche.
     expect(toggleUnderlinePatches([ts("a", { underline: "Single" }), ts("b", { underline: null })])).toEqual([
       { id: "a", underline: "None" },
       { id: "b", underline: "None" },
     ]);
+    // Todas nulas -> sin valores conocidos, destino "Single"; la (única) forma nula siempre recibe parche.
+    expect(toggleUnderlinePatches([ts("a", { underline: null })])).toEqual([{ id: "a", underline: "Single" }]);
+  });
+  it("all \"None\" -> every shape is patched to \"Single\"", () => {
+    expect(toggleUnderlinePatches([ts("a", { underline: "None" }), ts("b", { underline: "None" })])).toEqual([
+      { id: "a", underline: "Single" },
+      { id: "b", underline: "Single" },
+    ]);
+  });
+  it("empty list returns []", () => {
+    expect(toggleUnderlinePatches([])).toEqual([]);
   });
 });
 

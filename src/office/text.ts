@@ -5,6 +5,8 @@ import type { FormatCaps } from "./format";
 export const TEXT_FRAME_PROPS = "autoSizeSetting,wordWrap,verticalAlignment,leftMargin,rightMargin,topMargin,bottomMargin";
 export const TEXT_RANGE_PROPS = "text";
 export const PARAGRAPH_PROPS = "horizontalAlignment,bulletFormat/visible";
+// `strikethrough` requiere PowerPointApi 1.8 (bold/italic/underline/size son 1.4); el manifiesto ya
+// exige 1.8 como mínimo, así que se carga sin gating (a diferencia de `indentLevel`, que es 1.10).
 export const FONT_PROPS = "size,bold,italic,underline,strikethrough";
 
 /**

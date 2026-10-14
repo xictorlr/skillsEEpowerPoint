@@ -152,11 +152,22 @@ function wordTokens(line: string): Token[] {
   return out;
 }
 
+/** Reconstruye una cadena aplicando ediciones locales (offsets propios, no acumulativos). */
+function applyLocalEdits(text: string, edits: Token[]): string {
+  let out = text;
+  for (const e of [...edits].sort((a, b) => b.start - a.start)) {
+    out = out.slice(0, e.start) + e.text + out.slice(e.start + e.length);
+  }
+  return out;
+}
+
 /**
  * Ediciones por palabra (offsets locales a la línea) si, y solo si, ambas líneas
- * tokenizan al mismo número de palabras y cada par de tokens tiene el mismo `start`
- * y `length` (solo cambia el contenido). Si no hay esa alineación 1:1, devuelve `null`
- * para que la llamadora recurra a una única edición de línea completa.
+ * tokenizan al mismo número de palabras, cada par de tokens tiene el mismo `start`
+ * y `length` (solo cambia el contenido), y reconstruir `oldLine` con esas ediciones
+ * reproduce `newLine` exactamente (esto último descarta cambios en los espacios
+ * ENTRE palabras, p. ej. un espacio que pasa a ser tabulador). Si no se cumple todo
+ * eso, devuelve `null` para que la llamadora recurra a una única edición de línea completa.
  */
 function alignedWordEdits(oldLine: string, newLine: string): Token[] | null {
   const oldTokens = wordTokens(oldLine);
@@ -171,7 +182,8 @@ function alignedWordEdits(oldLine: string, newLine: string): Token[] | null {
   }
   // Si ningún token cambió pero las líneas difieren, la diferencia está en los
   // espacios entre tokens: no es representable a nivel de palabra.
-  return out.length > 0 ? out : null;
+  if (out.length === 0) return null;
+  return applyLocalEdits(oldLine, out) === newLine ? out : null;
 }
 
 /**

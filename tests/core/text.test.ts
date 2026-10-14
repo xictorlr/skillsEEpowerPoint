@@ -113,6 +113,7 @@ describe("computeTextEdits + applyEdits round-trip", () => {
     ["uno\rdos tres\rcuatro", "uno\rDOS tres\rcuatro"],
     ["hola\r\rmundo", "hola\rmundo"],
     ["a b", "ab "],
+    ["a b", "A\tb"],
     ["a\rb", "a\vb"],
   ];
   it.each(cases)("applying computeTextEdits(%j, %j) to the old text reproduces the new text", (oldText, newText) => {

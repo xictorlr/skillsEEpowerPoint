@@ -16,7 +16,7 @@ const SLIDE_SIZE_LABELS: Record<SlideSizePreset, string> = {
   letter: "Carta (720×540)",
 };
 
-/** Sección "Ajustes": tamaño de diapositiva forzado y parámetros de la matriz. */
+/** Sección "Ajustes": tamaño de diapositiva forzado, parámetros de la matriz y paso de tamaño de fuente. */
 export class SettingsSection {
   constructor(private ctx: SectionContext) {}
 
@@ -32,6 +32,10 @@ export class SettingsSection {
     row.appendChild(this.slideSizeField());
     sec.appendChild(row);
     sec.appendChild(this.matrixFields());
+    const fontStepRow = document.createElement("div");
+    fontStepRow.className = "st-row";
+    fontStepRow.appendChild(this.fontStepField());
+    sec.appendChild(fontStepRow);
     return sec;
   }
 
@@ -82,16 +86,11 @@ export class SettingsSection {
       field.appendChild(input);
       return field;
     };
-    wrap.append(
-      make("Cols", "columns", 1, "1"),
-      make("Gap X", "gapX", 0),
-      make("Gap Y", "gapY", 0),
-      this.fontSizeStepField(),
-    );
+    wrap.append(make("Cols", "columns", 1, "1"), make("Gap X", "gapX", 0), make("Gap Y", "gapY", 0));
     return wrap;
   }
 
-  private fontSizeStepField(): HTMLElement {
+  private fontStepField(): HTMLElement {
     const field = document.createElement("label");
     field.className = "st-field";
     field.append("Paso de fuente");

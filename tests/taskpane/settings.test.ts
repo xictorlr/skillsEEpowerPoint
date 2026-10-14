@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MATRIX,
+  DEFAULT_PERSISTED,
   MAX_RECENT_COLORS,
   SLIDE_SIZE_PRESETS,
   sanitizeColorTarget,
@@ -125,7 +126,7 @@ describe("toCommandOptions", () => {
   });
 
   it("includes the fontSizeStep", () => {
-    const result = toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "auto", ...BASE_PERSISTED, fontSizeStep: 2.5 });
+    const result = toCommandOptions({ ...DEFAULT_PERSISTED, fontSizeStep: 2.5 });
     expect(result.fontSizeStep).toBe(2.5);
   });
 });
@@ -211,14 +212,16 @@ describe("sanitizeFontSizeStep", () => {
     expect(sanitizeFontSizeStep(null)).toBe(1);
     expect(sanitizeFontSizeStep("not-a-number")).toBe(1);
     expect(sanitizeFontSizeStep(NaN)).toBe(1);
+    expect(sanitizeFontSizeStep(Infinity)).toBe(1);
+    expect(sanitizeFontSizeStep(-Infinity)).toBe(1);
   });
 
-  it("returns 1 for values outside [0.5, 20]", () => {
-    expect(sanitizeFontSizeStep(0)).toBe(1);
-    expect(sanitizeFontSizeStep(0.4)).toBe(1);
-    expect(sanitizeFontSizeStep(20.1)).toBe(1);
-    expect(sanitizeFontSizeStep(-3)).toBe(1);
-    expect(sanitizeFontSizeStep(Infinity)).toBe(1);
+  it("clamps finite values outside [0.5, 20] instead of resetting to 1", () => {
+    expect(sanitizeFontSizeStep(0)).toBe(0.5);
+    expect(sanitizeFontSizeStep(0.1)).toBe(0.5);
+    expect(sanitizeFontSizeStep(-3)).toBe(0.5);
+    expect(sanitizeFontSizeStep(25)).toBe(20);
+    expect(sanitizeFontSizeStep(20.1)).toBe(20);
   });
 
   it("passes through valid values unchanged", () => {

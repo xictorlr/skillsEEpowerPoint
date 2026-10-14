@@ -82,13 +82,14 @@ export function sanitizePasteParts(input: unknown): FormatParts {
 /** Paso por defecto (en puntos) al aumentar/reducir el tamaño de fuente. */
 export const DEFAULT_FONT_SIZE_STEP = 1;
 
-/** Sanea un valor arbitrario a un paso de tamaño de fuente válido: número finito entre 0.5 y 20,
- *  redondeado al 0.5 más cercano; si no es un número finito en ese rango, usa el valor por defecto. */
+/** Sanea un valor arbitrario a un paso de tamaño de fuente válido: un número finito se acota a
+ *  [0.5, 20] y se redondea al 0.5 más cercano; cualquier otro valor usa el valor por defecto. */
 export function sanitizeFontSizeStep(input: unknown): number {
-  if (typeof input !== "number" || !Number.isFinite(input) || input < 0.5 || input > 20) {
+  if (typeof input !== "number" || !Number.isFinite(input)) {
     return DEFAULT_FONT_SIZE_STEP;
   }
-  return Math.round(input * 2) / 2;
+  const clamped = Math.min(20, Math.max(0.5, input));
+  return Math.round(clamped * 2) / 2;
 }
 
 /** Forma persistida en localStorage (ver settings.ts): matriz, preset de tamaño de diapositiva,

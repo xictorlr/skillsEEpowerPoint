@@ -174,6 +174,7 @@ export class Panel {
     el.className = "st-btn";
     el.type = "button";
     el.innerHTML = iconSvg(cmd.icon);
+    el.dataset.commandId = cmd.id;
     el.setAttribute("aria-label", cmd.label);
     el.addEventListener("click", () => void this.run(cmd));
     this.buttons.set(cmd.id, { el, cmd });

@@ -58,19 +58,21 @@ describe("presentation commands", () => {
   });
 
   describe("export-selected-slides", () => {
-    it("without PowerPointApi 1.10, reports that a recent PowerPoint is required, without syncing at all", async () => {
+    it("without PowerPointApi 1.10, disabledReason (requiresApi) rejects it before run, without syncing at all", async () => {
       const ctx = new MockContext([], "", { slides: [{ id: "sl1" }] });
       const createPresentationMock = stubPowerPoint(ctx);
 
       const cmd = findCommand("export-selected-slides")!;
       const result = await executeCommand(cmd, DEFAULT_OPTIONS);
 
-      expect(result).toEqual({ ok: true, changed: 0, message: "Exportar requiere PowerPoint reciente (API 1.10)." });
+      // `requiresApi: "1.10"` (registry.ts): `disabledReason` rechaza el comando antes de llamar a
+      // `run` -- el mensaje y el `ok: false` vienen de ahí, no del propio comando (que ya no repite
+      // esa comprobación, ver presentation.ts).
+      expect(result).toEqual({ ok: false, message: "Requiere PowerPoint reciente (API 1.10)." });
       expect(createPresentationMock).not.toHaveBeenCalled();
-      // El único sync es el de la lectura común de la selección (execute.ts, previo a cmd.run); el
-      // comando en sí no añade ninguno: la comprobación de la API va antes de leer la selección de
-      // diapositivas.
-      expect(ctx.syncCount).toBe(1);
+      // needsSelection: false, y disabledReason lanza antes de leer la selección o llamar a run:
+      // ningún sync.
+      expect(ctx.syncCount).toBe(0);
     });
 
     it("with PowerPointApi 1.10 but no slide selected, reports a validation message", async () => {

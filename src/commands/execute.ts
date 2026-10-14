@@ -2,13 +2,14 @@ import { applyPatches } from "../office/apply";
 import { applyFormatPatch } from "../office/format";
 import { applyTextPatch } from "../office/text";
 import { runCommand, type CommandOutcome, type CommandResult } from "../office/runtime";
-import { readSelection } from "../office/selection";
+import { readSelection, type SelectionRead } from "../office/selection";
+import { DEFAULT_SLIDE_SIZE } from "../office/slideSize";
 import type { SlideSize } from "../core/types";
 import { getClipboard, setClipboard } from "./clipboard";
 import { disabledReason } from "./registry";
 import type { Command, CommandOptions } from "./types";
 
-// La caché no se invalida si el usuario cambia Diseño > Tamaño de diapositiva con el panel abierto
+// Sin PowerPointApi 1.10, la caché no se invalida si el usuario cambia Diseño > Tamaño de diapositiva con el panel abierto
 // (limitación conocida; la opción slideSize es la alternativa).
 const slideSizeCache = new Map<string, SlideSize>();
 
@@ -22,14 +23,21 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
   return runCommand(cmd.id, async (context): Promise<CommandOutcome> => {
     const withText = cmd.kind === "text";
     const withFormat = cmd.kind === "format" || cmd.kind === "copy-format";
-    const { selection, proxies, formats, caps, texts } = await readSelection(context, {
-      slideSizeCache,
-      slideSizeOverride: options.slideSize,
-      withFormat,
-      withText,
-      // Solo los comandos de geometría leen selection.slide: evita pagar ese sync en el resto.
-      withSlideSize: cmd.kind === "geometry",
-    });
+    // `needsSelection: false` (solo en comandos "action", ver types.ts): el comando no necesita la
+    // selección actual (navega, comprueba el mazo, crea diapositivas…), así que se evita por
+    // completo el sync de `readSelection`. `disabledReason` se sigue evaluando igual, con count 0
+    // (todos estos comandos tienen `minShapes: 0`).
+    const { selection, proxies, formats, caps, texts }: SelectionRead =
+      cmd.kind === "action" && cmd.needsSelection === false
+        ? { selection: { shapes: [], slide: DEFAULT_SLIDE_SIZE }, proxies: new Map(), formats: [], caps: new Map(), texts: [] }
+        : await readSelection(context, {
+            slideSizeCache,
+            slideSizeOverride: options.slideSize,
+            withFormat,
+            withText,
+            // Solo los comandos de geometría leen selection.slide: evita pagar ese sync en el resto.
+            withSlideSize: cmd.kind === "geometry",
+          });
     const reason = disabledReason(cmd, selection.shapes.length, getClipboard() !== null);
     if (reason) throw new Error(reason);
 

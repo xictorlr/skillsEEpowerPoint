@@ -1,4 +1,3 @@
-import { supportsApi } from "../office/capabilities";
 import { createPresentation, exportSlides } from "../office/deck";
 import type { ActionCommand } from "./types";
 
@@ -10,6 +9,7 @@ const newPresentation: ActionCommand = {
   label: "Nueva presentación",
   icon: "newPresentation",
   minShapes: 0,
+  needsSelection: false,
   run: async () => {
     await createPresentation();
     return { changed: 0, message: "Nueva presentación creada." };
@@ -17,8 +17,10 @@ const newPresentation: ActionCommand = {
 };
 
 /** `export-selected-slides`: exporta las diapositivas seleccionadas a una presentación nueva
- *  (requiere PowerPointApi 1.10; ver `exportSlides`). Comprueba la API antes de cualquier `sync()`:
- *  sin soporte, no tiene sentido pagar la lectura de la selección. */
+ *  (requiere PowerPointApi 1.10; ver `exportSlides`). `requiresApi: "1.10"` ya hace que
+ *  `disabledReason` (registry.ts) rechace el comando antes de llegar aquí sin esa API -- el
+ *  comando tampoco se lista en el panel (`commandsBySection`) -- así que `run` no necesita volver
+ *  a comprobarlo. */
 const exportSelectedSlides: ActionCommand = {
   kind: "action",
   id: "export-selected-slides",
@@ -26,9 +28,9 @@ const exportSelectedSlides: ActionCommand = {
   label: "Exportar diapositivas seleccionadas",
   icon: "exportSlides",
   minShapes: 0,
+  requiresApi: "1.10",
+  needsSelection: false,
   run: async ({ context }) => {
-    if (!supportsApi("1.10")) return { changed: 0, message: "Exportar requiere PowerPoint reciente (API 1.10)." };
-
     const selected = context.presentation.getSelectedSlides();
     selected.load("items/id");
     await context.sync();

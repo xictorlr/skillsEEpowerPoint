@@ -1,5 +1,5 @@
 import { distinctFonts, isOffSlide } from "../core/check";
-import { deleteShapes, loadFontNames, loadHasText, readDeckShapes, readFontName } from "../office/deck";
+import { deleteShapes, loadFontNames, loadHasText, readDeckShapes, readFontName, readSlideShapesWithProxies } from "../office/deck";
 import { readSlideNav, readSlideShapes, selectShapes } from "../office/navigation";
 import { getSlideSize } from "../office/slideSize";
 import type { ActionCommand } from "./types";
@@ -8,7 +8,9 @@ import type { ActionCommand } from "./types";
 const MAX_FONTS_SHOWN = 12;
 
 /** `check-empty-text-slide`: en la diapositiva activa, borra los cuadros de texto (`TextBox`) sin
- *  texto (`textFrame.hasText === false`). */
+ *  texto (`textFrame.hasText === false`). Lee solo las formas de la diapositiva activa
+ *  (`readSlideShapesWithProxies`), no las de todo el mazo (`readDeckShapes`, que usa
+ *  `check-empty-text-deck`, sí necesita). */
 const checkEmptyTextSlide: ActionCommand = {
   kind: "action",
   id: "check-empty-text-slide",
@@ -16,10 +18,11 @@ const checkEmptyTextSlide: ActionCommand = {
   label: "Eliminar cuadros de texto vacíos (diapositiva)",
   icon: "emptyTextSlide",
   minShapes: 0,
+  needsSelection: false,
   run: async ({ context }) => {
     const nav = await readSlideNav(context);
-    const { shapes, proxies, textCapable } = await readDeckShapes(context);
-    const ids = shapes.filter((d) => d.slideId === nav.slideId && d.shape.type === "TextBox").map((d) => d.shape.id);
+    const { shapes, proxies, textCapable } = await readSlideShapesWithProxies(context, nav.slideId);
+    const ids = shapes.filter((s) => s.type === "TextBox").map((s) => s.id);
     loadHasText(proxies, ids, textCapable);
     await context.sync();
 
@@ -42,6 +45,7 @@ const checkEmptyTextDeck: ActionCommand = {
   icon: "emptyTextDeck",
   minShapes: 0,
   confirm: true,
+  needsSelection: false,
   run: async ({ context }) => {
     const { shapes, proxies, textCapable } = await readDeckShapes(context);
     const ids = shapes.filter((d) => d.shape.type === "TextBox").map((d) => d.shape.id);
@@ -66,6 +70,7 @@ const checkOffslideSelect: ActionCommand = {
   label: "Seleccionar formas fuera de la diapositiva",
   icon: "offSlide",
   minShapes: 0,
+  needsSelection: false,
   run: async ({ context, options, slideSizeCache }) => {
     const nav = await readSlideNav(context);
     const size = await getSlideSize(context, slideSizeCache, options.slideSize);
@@ -95,6 +100,7 @@ const checkFonts: ActionCommand = {
   label: "Fuentes del mazo",
   icon: "fonts",
   minShapes: 0,
+  needsSelection: false,
   run: async ({ context }) => {
     const { shapes, proxies, textCapable } = await readDeckShapes(context);
     const ids = shapes.filter((d) => textCapable.has(d.shape.id)).map((d) => d.shape.id);

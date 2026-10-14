@@ -79,6 +79,58 @@ export async function readDeckShapes(
   return { shapes, proxies, textCapable };
 }
 
+/**
+ * Como `readDeckShapes`, pero para una única diapositiva (`slideId`): mismos dos syncs (el segundo
+ * solo si esa diapositiva tiene marcadores de posición), pero sin leer ni un sync de más por
+ * cargar formas de las demás diapositivas del mazo. Para comandos que solo operan sobre la
+ * diapositiva activa (p. ej. `check-empty-text-slide`).
+ */
+export async function readSlideShapesWithProxies(
+  context: PowerPoint.RequestContext,
+  slideId: string,
+): Promise<{ shapes: ShapeModel[]; proxies: Map<string, PowerPoint.Shape>; textCapable: Set<string> }> {
+  const shapesCollection = context.presentation.slides.getItem(slideId).shapes;
+  shapesCollection.load(SHAPE_PROPS);
+  await context.sync();
+
+  const shapes: ShapeModel[] = [];
+  const proxies = new Map<string, PowerPoint.Shape>();
+  const allShapes: PowerPoint.Shape[] = [];
+  for (const s of shapesCollection.items) {
+    proxies.set(s.id, s);
+    allShapes.push(s);
+    shapes.push({
+      id: s.id,
+      name: s.name,
+      type: String(s.type),
+      left: s.left,
+      top: s.top,
+      width: s.width,
+      height: s.height,
+      rotation: s.rotation,
+      zOrder: s.zOrderPosition,
+      isGroupChild: (s.level ?? 0) > 0,
+    });
+  }
+
+  const placeholders = allShapes.filter((s) => String(s.type) === "Placeholder");
+  if (placeholders.length > 0) {
+    for (const p of placeholders) p.placeholderFormat.load("containedType");
+    await context.sync();
+  }
+
+  const textCapable = new Set<string>();
+  for (const s of allShapes) {
+    if (String(s.type) === "Placeholder") {
+      if (placeholderHasText(s.placeholderFormat.containedType)) textCapable.add(s.id);
+    } else if (hasTextFrameByType(String(s.type))) {
+      textCapable.add(s.id);
+    }
+  }
+
+  return { shapes, proxies, textCapable };
+}
+
 /** Encola `textFrame.load("hasText")` en las formas de `ids` que admiten marco de texto, según
  *  `textCapable` (ver `readDeckShapes`). El llamador hace `sync()`. */
 export function loadHasText(proxies: Map<string, PowerPoint.Shape>, ids: string[], textCapable: Set<string>): void {
@@ -135,6 +187,38 @@ export async function addSlideAfter(
   const slide = slides.getItemAt(count.value - 1);
   slide.moveTo(index + 1);
   return slide;
+}
+
+/**
+ * Como `addSlideAfter`, pero para `count` diapositivas a la vez (p. ej. `agenda-create`, una por
+ * sección): encola los `count` `slides.add()` (todas con el mismo `layout`, si se da) y un único
+ * `getCount()`, un solo `sync()` de alta, y resuelve cada diapositiva nueva con `getItemAt` sobre
+ * las últimas `count` posiciones (el conteo ya las refleja, igual que en `addSlideAfter`). Cada
+ * `moveTo(index + 1 + i)` queda encolado en orden (i: 0..count-1), sin sync: el llamador decide
+ * cuándo sincronizar (p. ej. junto con el contenido de los nuevos cuadros de texto). Devuelve las
+ * diapositivas en el mismo orden en que se insertan (index+1, index+2, …).
+ */
+export async function addSlidesAfter(
+  context: PowerPoint.RequestContext,
+  index: number,
+  count: number,
+  layout?: { slideMasterId: string; layoutId: string },
+): Promise<PowerPoint.Slide[]> {
+  const slides = context.presentation.slides;
+  for (let i = 0; i < count; i++) {
+    if (layout) slides.add({ slideMasterId: layout.slideMasterId, layoutId: layout.layoutId });
+    else slides.add();
+  }
+  const total = slides.getCount();
+  await context.sync();
+
+  const added: PowerPoint.Slide[] = [];
+  for (let i = 0; i < count; i++) {
+    const slide = slides.getItemAt(total.value - count + i);
+    slide.moveTo(index + 1 + i);
+    added.push(slide);
+  }
+  return added;
 }
 
 /**

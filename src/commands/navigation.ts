@@ -34,6 +34,7 @@ function nav(
     label,
     icon,
     minShapes: 0,
+    needsSelection: false,
     run: (ctx) => go(ctx, resolveIndex, edgeMessage),
   };
 }
@@ -50,6 +51,7 @@ export const navigationCommands: readonly ActionCommand[] = [
     label: "Ir a diapositiva",
     icon: "slideGoto",
     minShapes: 0,
+    needsSelection: false,
     run: async ({ context, options }) => {
       const n = await readSlideNav(context);
       const target = (options.gotoSlide ?? n.index + 1) - 1;

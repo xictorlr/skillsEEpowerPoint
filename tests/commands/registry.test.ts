@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SECTION_ORDER, commands, commandsBySection, disabledReason, findCommand } from "../../src/commands/registry";
 import type { CommandOptions } from "../../src/commands/types";
 import { shape, slide16x9 } from "../core/fixtures";
@@ -90,9 +90,33 @@ describe("registry", () => {
       "check-offslide-select",
       "check-fonts",
     ]);
-    expect(commandsBySection("presentation").map((c) => c.id)).toEqual(["new-presentation", "export-selected-slides"]);
+    expect(commandsBySection("presentation").map((c) => c.id)).toEqual(["new-presentation"]);
     expect(commandsBySection("wizards").map((c) => c.id)).toEqual([]);
     expect(findCommand("agenda-create")).toBeDefined();
+  });
+
+  describe("commands gated by requiresApi", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("excludes export-selected-slides without Office / PowerPointApi 1.10 support", () => {
+      expect(commandsBySection("presentation").map((c) => c.id)).toEqual(["new-presentation"]);
+      expect(findCommand("export-selected-slides")).toBeDefined(); // sigue existiendo, solo oculto
+    });
+
+    it("includes export-selected-slides when the host supports PowerPointApi 1.10", () => {
+      vi.stubGlobal("Office", { context: { requirements: { isSetSupported: () => true } } });
+      expect(commandsBySection("presentation").map((c) => c.id)).toEqual(["new-presentation", "export-selected-slides"]);
+    });
+
+    it("disabledReason reports the missing API requirement", () => {
+      const cmd = findCommand("export-selected-slides")!;
+      expect(disabledReason(cmd, 0)).toBe("Requiere PowerPoint reciente (API 1.10).");
+
+      vi.stubGlobal("Office", { context: { requirements: { isSetSupported: () => true } } });
+      expect(disabledReason(cmd, 0)).toBeUndefined();
+    });
   });
 
   it("marks check-empty-text-deck (and only that command) as needing confirmation", () => {

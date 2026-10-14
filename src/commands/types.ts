@@ -76,6 +76,15 @@ interface BaseCommand {
   maxShapes?: number;
   /** Si es true, el panel pide confirmación antes de ejecutar (p. ej. un borrado sobre todo el mazo). */
   confirm?: boolean;
+  /**
+   * Si es `false`, `execute.ts` no llama a `readSelection` para este comando (ver `ActionCommand`):
+   * pasa `selection: { shapes: [], slide: DEFAULT_SLIDE_SIZE }` y un `Map` de proxies vacío. Por
+   * defecto `true` (se lee la selección actual antes de ejecutar). Solo tiene efecto en comandos
+   * `kind: "action"`; el resto de tipos siempre leen la selección.
+   */
+  needsSelection?: boolean;
+  /** Requirement set mínimo de PowerPointApi; sin soporte el comando se oculta */
+  requiresApi?: string;
 }
 
 export interface GeometryCommand extends BaseCommand {

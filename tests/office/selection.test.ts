@@ -225,15 +225,19 @@ describe("getSlideSize with PowerPointApi 1.10", () => {
     expect(ctx.syncCount).toBe(1);
   });
 
-  it("caches the pageSetup-derived size the same way as the PNG heuristic", async () => {
+  it("re-reads pageSetup every call instead of caching it (reflects a live Diseño > Tamaño change)", async () => {
     stubOffice1_10();
     const cache = new Map();
     const ctx1 = new MockContext([], "bad-png", { pageSetup: { slideWidth: 720, slideHeight: 405 } });
-    await getSlideSize(ctx1 as never, cache);
-    const ctx2 = new MockContext([], "bad-png", { pageSetup: { slideWidth: 1, slideHeight: 1 } });
-    const size = await getSlideSize(ctx2 as never, cache);
-    expect(size).toEqual({ width: 720, height: 405 });
-    expect(ctx2.syncCount).toBe(0); // vino de la caché, ni siquiera tocó pageSetup
+    const size1 = await getSlideSize(ctx1 as never, cache);
+    expect(size1).toEqual({ width: 720, height: 405 });
+    expect(ctx1.syncCount).toBe(1);
+
+    const ctx2 = new MockContext([], "bad-png", { pageSetup: { slideWidth: 1000, slideHeight: 750 } });
+    const size2 = await getSlideSize(ctx2 as never, cache);
+    expect(size2).toEqual({ width: 1000, height: 750 }); // nuevo tamaño, no el cacheado
+    expect(ctx2.syncCount).toBe(1); // sync propio, no vino de la caché
+    expect(cache.size).toBe(0); // la caché nunca se usa con pageSetup disponible
   });
 
   it("falls back to the PNG heuristic when pageSetup reports invalid (non-finite/zero) values", async () => {

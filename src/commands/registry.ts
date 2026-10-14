@@ -1,3 +1,4 @@
+import { supportsApi } from "../office/capabilities";
 import { alignmentCommands } from "./alignment";
 import { checkCommands } from "./check";
 import { colorCommands } from "./color";
@@ -52,7 +53,9 @@ export const hiddenCommandIds: ReadonlySet<string> = new Set([
 ]);
 
 export function commandsBySection(section: SectionId): Command[] {
-  return commands.filter((c) => c.section === section && !hiddenCommandIds.has(c.id));
+  return commands.filter(
+    (c) => c.section === section && !hiddenCommandIds.has(c.id) && (!c.requiresApi || supportsApi(c.requiresApi)),
+  );
 }
 
 export function findCommand(id: string): Command | undefined {
@@ -65,6 +68,7 @@ function formas(n: number): string {
 
 /** Motivo por el que un comando no aplica, o undefined si aplica. `hasClipboard` solo importa para pegar formato. */
 export function disabledReason(cmd: Command, count: number, hasClipboard = true): string | undefined {
+  if (cmd.requiresApi && !supportsApi(cmd.requiresApi)) return `Requiere PowerPoint reciente (API ${cmd.requiresApi}).`;
   if (count < cmd.minShapes) return `Selecciona al menos ${formas(cmd.minShapes)}.`;
   if (cmd.maxShapes !== undefined && count > cmd.maxShapes) return `Selecciona como máximo ${formas(cmd.maxShapes)}.`;
   if (cmd.kind === "format" && cmd.needsClipboard && !hasClipboard) return "Primero copia el formato de una forma.";

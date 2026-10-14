@@ -41,7 +41,9 @@ describe("expert commands", () => {
 
     expect(result).toEqual({ ok: true, changed: 1 });
     expect(ctx.selectedShapeIds).toEqual(["img1"]);
-    expect(ctx.syncCount).toBe(4); // selección + readSlideNav + readSlideShapes + escritura
+    // needsSelection: false (select-kind no necesita la selección actual): sin el sync de
+    // readSelection, solo readSlideNav + readSlideShapes + escritura (antes eran 4).
+    expect(ctx.syncCount).toBe(3);
   });
 
   it("select-kind with no matches reports a message and leaves the current selection untouched", async () => {
@@ -54,7 +56,9 @@ describe("expert commands", () => {
 
     expect(result).toEqual({ ok: true, changed: 0, message: "No hay formas de ese tipo." });
     expect(ctx.selectedShapeIds).toBeUndefined();
-    expect(ctx.syncCount).toBe(3); // selección + readSlideNav + readSlideShapes, sin sync de escritura
+    // needsSelection: false: readSlideNav + readSlideShapes, sin sync de escritura (antes eran 3,
+    // con el de readSelection).
+    expect(ctx.syncCount).toBe(2);
   });
 
   it("select-by-name with an empty filter reports a message without touching the selection", async () => {
@@ -66,7 +70,9 @@ describe("expert commands", () => {
 
     expect(result).toEqual({ ok: true, changed: 0, message: "Escribe parte del nombre." });
     expect(ctx.selectedShapeIds).toBeUndefined();
-    expect(ctx.syncCount).toBe(1); // solo la lectura de selección; ni siquiera lee la diapositiva
+    // needsSelection: false: ya no hay sync de readSelection, y el filtro vacío corta antes de
+    // leer la diapositiva (readSlideNav/readSlideShapes) -- ningún sync (antes era 1).
+    expect(ctx.syncCount).toBe(0);
   });
 
   it("select-by-name with no matches reports its own message and leaves the current selection untouched", async () => {
@@ -79,7 +85,9 @@ describe("expert commands", () => {
 
     expect(result).toEqual({ ok: true, changed: 0, message: "Ninguna forma coincide con ese nombre." });
     expect(ctx.selectedShapeIds).toBeUndefined();
-    expect(ctx.syncCount).toBe(3); // selección + readSlideNav + readSlideShapes, sin sync de escritura
+    // needsSelection: false: readSlideNav + readSlideShapes, sin sync de escritura (antes eran 3,
+    // con el de readSelection).
+    expect(ctx.syncCount).toBe(2);
   });
 
   it("select-by-name selects the shapes matching the filter", async () => {

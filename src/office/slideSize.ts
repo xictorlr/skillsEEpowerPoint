@@ -9,10 +9,10 @@ const CACHE_KEY = "current";
 let warned = false;
 
 /**
- * Deduce el tamaño de la diapositiva seleccionada renderizándola a `STANDARD_SLIDE_HEIGHT_PT` px
- * de alto (1 px = 1 pt bajo la asunción de 540 pt, lo que evita el error de redondeo de pedir un
- * render pequeño y escalarlo). Cachea el resultado exitoso (el tamaño no cambia dentro de una
- * presentación).
+ * Deduce el tamaño de la diapositiva seleccionada. Sin PowerPointApi 1.10, se renderiza la
+ * diapositiva a `STANDARD_SLIDE_HEIGHT_PT` px de alto (1 px = 1 pt bajo la asunción de 540 pt, lo
+ * que evita el error de redondeo de pedir un render pequeño y escalarlo) y se cachea el resultado
+ * exitoso (el tamaño no cambia dentro de una presentación, y esta heurística es cara de repetir).
  *
  * El fallback 16:9 (960x540) NO se cachea: un fallo puede ser transitorio (p. ej. ningún slide
  * seleccionado en ese momento), y cachearlo congelaría un tamaño incorrecto para el resto de la
@@ -25,8 +25,10 @@ let warned = false;
  * ni tocar la caché.
  *
  * Si el host soporta PowerPointApi 1.10 (ver `supportsApi`), se usa `presentation.pageSetup` para
- * obtener el tamaño exacto (en puntos) de un solo sync, sin recurrir al render PNG. Si esos valores
- * resultan inválidos (no finitos o <= 0) o la lectura falla, se cae a la heurística PNG de abajo.
+ * obtener el tamaño exacto (en puntos) de un solo sync, sin recurrir al render PNG ni a la caché:
+ * se lee en cada llamada (un sync barato) para reflejar de inmediato un cambio de Diseño > Tamaño
+ * de diapositiva hecho mientras el panel está abierto. Si esos valores resultan inválidos (no
+ * finitos o <= 0) o la lectura falla, se cae a la heurística PNG de abajo (que sí usa la caché).
  */
 export async function getSlideSize(
   context: PowerPoint.RequestContext,
@@ -35,9 +37,6 @@ export async function getSlideSize(
 ): Promise<SlideSize> {
   if (override) return override;
 
-  const cached = cache.get(CACHE_KEY);
-  if (cached) return cached;
-
   if (supportsApi("1.10")) {
     try {
       const pageSetup = context.presentation.pageSetup;
@@ -45,14 +44,15 @@ export async function getSlideSize(
       await context.sync();
       const { slideWidth, slideHeight } = pageSetup;
       if (Number.isFinite(slideWidth) && slideWidth > 0 && Number.isFinite(slideHeight) && slideHeight > 0) {
-        const size: SlideSize = { width: slideWidth, height: slideHeight };
-        cache.set(CACHE_KEY, size);
-        return size;
+        return { width: slideWidth, height: slideHeight };
       }
     } catch {
       // cae a la heurística PNG de abajo (p. ej. host que anuncia 1.10 pero falla al leerlo).
     }
   }
+
+  const cached = cache.get(CACHE_KEY);
+  if (cached) return cached;
 
   try {
     // Si no hay ninguna diapositiva seleccionada, getItemAt(0) lanza al hacer sync();

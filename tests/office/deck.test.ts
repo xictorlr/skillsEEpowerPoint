@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addSlideAfter,
+  addSlidesAfter,
   addTextBox,
   createPresentation,
   DECK_PROPS,
@@ -12,6 +13,7 @@ import {
   loadHasText,
   readDeckShapes,
   readFontName,
+  readSlideShapesWithProxies,
 } from "../../src/office/deck";
 import { MockContext, MockShape } from "./mockPowerPoint";
 
@@ -99,6 +101,44 @@ describe("readDeckShapes", () => {
     expect(imgPh.loads).toEqual([]);
     expect(freePh.loads).toEqual([{ path: "textFrame", props: "hasText" }]);
     expect(ctx.invalidTouched).toBe(false);
+  });
+});
+
+describe("readSlideShapesWithProxies", () => {
+  it("reads only the shapes of the given slide, with proxies and textCapable, in a single sync", async () => {
+    const onActive = new MockShape({ id: "a-1", name: "Caja", left: 0, top: 0, width: 10, height: 10 });
+    const onOther = new MockShape({ id: "b-1", type: "Image", left: 0, top: 0, width: 5, height: 5 });
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [onActive] }, { id: "sl2", shapes: [onOther] }] });
+
+    const { shapes, proxies, textCapable } = await readSlideShapesWithProxies(ctx as never, "sl1");
+
+    expect(ctx.syncCount).toBe(1);
+    expect(shapes).toEqual([
+      { id: "a-1", name: "Caja", type: "GeometricShape", left: 0, top: 0, width: 10, height: 10, rotation: 0, zOrder: 0, isGroupChild: false },
+    ]);
+    expect(proxies.size).toBe(1);
+    expect(proxies.get("a-1")).toBe(onActive);
+    expect(proxies.has("b-1")).toBe(false); // la diapositiva "sl2" no se toca
+    expect(textCapable).toEqual(new Set(["a-1"]));
+  });
+
+  it("queues placeholderFormat.load(\"containedType\") and does a 2nd sync only when THIS slide has placeholders", async () => {
+    const freePh = new MockShape({ id: "ph-free", type: "Placeholder", containedType: null, left: 0, top: 0, width: 1, height: 1 });
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [freePh] }, { id: "sl2" }] });
+
+    const { textCapable } = await readSlideShapesWithProxies(ctx as never, "sl1");
+
+    expect(ctx.syncCount).toBe(2);
+    expect(textCapable.has("ph-free")).toBe(true);
+  });
+
+  it("does a single sync when the slide has no placeholders", async () => {
+    const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 1, height: 1 });
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [box] }] });
+
+    await readSlideShapesWithProxies(ctx as never, "sl1");
+
+    expect(ctx.syncCount).toBe(1);
   });
 });
 
@@ -190,6 +230,53 @@ describe("addSlideAfter", () => {
       path: "slides.add",
       value: { slideMasterId: "master-1", layoutId: "lay-blank" },
     });
+  });
+});
+
+describe("addSlidesAfter", () => {
+  it("adds `count` slides and moves each right after `index`, in insertion order, with a single sync", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
+
+    const added = await addSlidesAfter(ctx as never, 0, 3);
+
+    expect(ctx.syncCount).toBe(1);
+    expect(ctx.slidesList).toHaveLength(4);
+    expect(added.map((s) => (s as unknown as { id: string }).id)).toEqual(["new-slide-1", "new-slide-2", "new-slide-3"]);
+
+    const addCalls = ctx.calls.filter((c) => c.path === "slides.add");
+    expect(addCalls).toHaveLength(3);
+    const moveToCalls = ctx.calls.filter((c) => c.path === "moveTo");
+    expect(moveToCalls).toEqual([
+      { id: "new-slide-1", path: "moveTo", value: 1 },
+      { id: "new-slide-2", path: "moveTo", value: 2 },
+      { id: "new-slide-3", path: "moveTo", value: 3 },
+    ]);
+    // Los 3 `slides.add` quedan encolados antes del único sync (el mock los ejecuta de forma
+    // síncrona, pero el código bajo prueba no espera entre ellos).
+    const addIndexes = addCalls.map((c) => ctx.calls.indexOf(c));
+    const firstMoveToIndex = ctx.calls.findIndex((c) => c.path === "moveTo");
+    expect(Math.max(...addIndexes)).toBeLessThan(firstMoveToIndex);
+  });
+
+  it("passes { slideMasterId, layoutId } to every slides.add call when given", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
+
+    await addSlidesAfter(ctx as never, 0, 2, { slideMasterId: "master-1", layoutId: "lay-blank" });
+
+    const addCalls = ctx.calls.filter((c) => c.path === "slides.add");
+    expect(addCalls).toHaveLength(2);
+    for (const call of addCalls) {
+      expect(call.value).toEqual({ slideMasterId: "master-1", layoutId: "lay-blank" });
+    }
+  });
+
+  it("inserts sequentially after a non-zero index (moveTo index+1, index+2, …)", async () => {
+    const ctx = new MockContext([], "", { slides: [{ id: "s1" }, { id: "s2" }, { id: "s3" }] });
+
+    await addSlidesAfter(ctx as never, 1, 2);
+
+    const moveToCalls = ctx.calls.filter((c) => c.path === "moveTo").map((c) => c.value);
+    expect(moveToCalls).toEqual([2, 3]);
   });
 });
 

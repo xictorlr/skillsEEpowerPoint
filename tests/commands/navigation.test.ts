@@ -41,6 +41,9 @@ describe("navigation commands", () => {
 
     expect(result).toEqual({ ok: true, changed: 0, message: "Diapositiva 3 de 3" });
     expect(ctx.selectedSlideIds).toEqual(["sl3"]);
+    // needsSelection: false (ver types.ts/execute.ts): sin el sync de readSelection, solo
+    // readSlideNav + la escritura de selectSlideByIndex (antes eran 3, con el de readSelection).
+    expect(ctx.syncCount).toBe(2);
   });
 
   it("slide-next on the last slide reports the edge message without changing the selection", async () => {

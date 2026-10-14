@@ -20,6 +20,7 @@ const selectKind: ActionCommand = {
   label: "Seleccionar por tipo",
   icon: "selectKind",
   minShapes: 0,
+  needsSelection: false,
   run: async ({ context, options }) => {
     const nav = await readSlideNav(context);
     const shapes = await readSlideShapes(context, nav.slideId);
@@ -46,6 +47,7 @@ const selectByName: ActionCommand = {
   label: "Seleccionar por nombre",
   icon: "selectByName",
   minShapes: 0,
+  needsSelection: false,
   run: async ({ context, options }) => {
     if (options.nameFilter.trim() === "") return { changed: 0, message: "Escribe parte del nombre." };
     const nav = await readSlideNav(context);

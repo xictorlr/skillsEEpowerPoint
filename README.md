@@ -95,8 +95,8 @@ otro botón del panel o dejar pasar ese tiempo lo cancela sin cambiar nada); sel
 fuera de la diapositiva activa; listar las fuentes usadas en todo el mazo.
 
 **Presentation:** abrir una presentación nueva en vacío; exportar las diapositivas seleccionadas a
-una presentación nueva (requiere PowerPoint reciente, PowerPointApi 1.10; en el resto avisa sin
-exportar).
+una presentación nueva (requiere PowerPoint reciente, PowerPointApi 1.10; en versiones anteriores el
+botón no aparece).
 
 **Wizards:** asistente "Crear agenda" con un título (por defecto "Agenda") y un cuadro de texto con
 una sección por línea; "Crear agenda" inserta una diapositiva por sección justo después de la
@@ -109,9 +109,13 @@ secciones se recuerdan entre sesiones.
 - Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
   fuentes dentro de un mismo texto) se omiten campo a campo; la transparencia solo se ajusta en rellenos sólidos.
 
-- Sin PowerPointApi 1.10, Office.js no expone el tamaño de la diapositiva: en Auto se deduce de la proporción asumiendo 540 pt de alto,
-  y el valor se guarda mientras el panel esté abierto. Si cambias Diseño > Tamaño de diapositiva, elige el
-  tamaño en Ajustes o vuelve a abrir el panel.
+- Con PowerPointApi 1.10 el tamaño de diapositiva se lee en cada comando (un sync barato): un cambio de
+  Diseño > Tamaño de diapositiva se refleja al instante, sin reabrir el panel. Sin PowerPointApi 1.10,
+  Office.js no expone el tamaño de la diapositiva: en Auto se mantiene la deducción por proporción
+  asumiendo 540 pt de alto, con caché mientras el panel esté abierto; si cambias Diseño > Tamaño de
+  diapositiva, elige el tamaño en Ajustes o vuelve a abrir el panel.
+- Los comandos que requieren PowerPointApi 1.10 (por ejemplo, exportar diapositivas seleccionadas) no
+  aparecen en versiones antiguas de PowerPoint que no soportan ese requirement set.
 - Las formas rotadas se alinean por su marco sin rotar (igual que expone el API), no por su caja visual.
 - Los comandos actúan sobre las formas devueltas por la selección; dentro de un grupo se trata el grupo como una forma.
 - El formato copiado ("Copiar formato") vive en memoria mientras el panel está abierto; se pierde al cerrarlo.
@@ -127,7 +131,7 @@ secciones se recuerdan entre sesiones.
   no entran dentro de grupos: un cuadro vacío o una forma descolocada dentro de un grupo no se
   detecta.
 - "Exportar diapositivas seleccionadas" requiere PowerPoint reciente (PowerPointApi 1.10); en el
-  resto, el botón avisa sin exportar.
+  resto, el botón no aparece en el panel.
 - El asistente "Crear agenda" usa cuadros de texto nativos con una maquetación fija, no el diseño
   del patrón de diapositivas (layout) de la presentación.
 - "Crear agenda" requiere que el diseño en blanco exista en el patrón principal; si no, se eliminan
@@ -202,7 +206,7 @@ Tras instalar el add-in, en una presentación de prueba:
    diapositiva" la selecciona; "Fuentes del mazo" lista las fuentes usadas. "Nueva presentación"
    abre una presentación en blanco en otra ventana; selecciona 2 diapositivas y "Exportar
    diapositivas seleccionadas" crea una presentación nueva solo con esas 2 (en PowerPoint sin API
-   1.10 debe avisar en vez de fallar). En Wizards, escribe un título y 5 secciones (una por línea)
+   1.10 el botón no aparece). En Wizards, escribe un título y 5 secciones (una por línea)
    y pulsa "Crear agenda": deben insertarse 5 diapositivas justo después de la activa, cada una con
    el título, la lista completa de secciones y su propia sección resaltada con el color de énfasis
    del tema; cierra y vuelve a abrir el panel y comprueba que el título y las secciones siguen ahí.

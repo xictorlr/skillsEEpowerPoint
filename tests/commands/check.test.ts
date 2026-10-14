@@ -19,16 +19,6 @@ function stubPowerPoint(ctx: MockContext): void {
   vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<unknown>) => fn(ctx) });
 }
 
-function stubOffice1_10(): void {
-  vi.stubGlobal("Office", {
-    context: {
-      requirements: {
-        isSetSupported: (name: string, version: string) => name === "PowerPointApi" && version === "1.10",
-      },
-    },
-  });
-}
-
 describe("check commands", () => {
   beforeEach(() => {
     resetSlideSizeCache();
@@ -228,26 +218,22 @@ describe("check commands", () => {
       expect(ctx.selectedShapeIds).toEqual(["off-right", "off-bottom"]);
     });
 
-    it("shares the slideSize cache across action-command calls (ctx.slideSizeCache, not a fresh Map per call)", async () => {
-      stubOffice1_10();
+    // PNG 1x1 (aspecto 1:1): `getSlideSize` lo renderiza y deduce 540x540 (ver tests/office/selection.test.ts).
+    const PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    it("shares the slideSize cache across action-command calls in the non-1.10 path (ctx.slideSizeCache, not a fresh Map per call); con PowerPointApi 1.10, getSlideSize ya no cachea (lee pageSetup en cada llamada, ver slideSize.ts)", async () => {
       const inside = new MockShape({ id: "inside", left: 0, top: 0, width: 10, height: 10 });
-      const ctx1 = new MockContext([], "", {
-        slides: [{ id: "sl1", shapes: [inside] }],
-        pageSetup: { slideWidth: 720, slideHeight: 405 },
-      });
+      const ctx1 = new MockContext([], PNG_1X1, { slides: [{ id: "sl1", shapes: [inside] }] });
       stubPowerPoint(ctx1);
 
       const cmd = findCommand("check-offslide-select")!;
-      await executeCommand(cmd, DEFAULT_OPTIONS); // sin override: cachea el tamaño 720x405
+      await executeCommand(cmd, DEFAULT_OPTIONS); // sin override ni API 1.10: renderiza y cachea 540x540
 
-      // Un segundo contexto con un pageSetup distinto (e inválido, para forzar el fallback si se
-      // releyera): si la caché se comparte de verdad, este contexto ni siquiera debería tocar
-      // `pageSetup` -- el tamaño cacheado (720x405) decide si la forma queda fuera.
-      const offAt750 = new MockShape({ id: "off-at-750", left: 750, top: 0, width: 10, height: 10 });
-      const ctx2 = new MockContext([], "", {
-        slides: [{ id: "sl1", shapes: [offAt750] }],
-        pageSetup: { slideWidth: 0, slideHeight: 0 },
-      });
+      // Un segundo contexto con un PNG inválido (forzaría el fallback 960x540 si se releyera): si
+      // la caché se comparte de verdad, este contexto ni siquiera debería intentar renderizar --
+      // el tamaño cacheado (540x540) decide si la forma queda fuera.
+      const offAt600 = new MockShape({ id: "off-at-600", left: 600, top: 0, width: 10, height: 10 });
+      const ctx2 = new MockContext([], "bad-png", { slides: [{ id: "sl1", shapes: [offAt600] }] });
       stubPowerPoint(ctx2);
 
       const result = await executeCommand(cmd, DEFAULT_OPTIONS);

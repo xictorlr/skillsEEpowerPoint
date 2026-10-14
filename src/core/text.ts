@@ -423,18 +423,15 @@ export function toggleBulletsPatches(shapes: TextShape[]): TextPatch[] {
  * valor no nulo están "on", las pone en `"None"`; si no, las pone en `"Single"`. Una forma ya
  * "on" (p. ej. `"Double"`) que se mantiene "on" no recibe parche, aunque su valor no sea
  * literalmente `"Single"`: el conmutador opera sobre el estado on/off, no sobre el estilo exacto.
+ * Se expresa con el mismo `toggleBooleanPatches` que los conmutadores booleanos, proyectando
+ * `underline` a on/off (`null` se conserva como `null`, valor mixto) y de vuelta a la cadena.
  */
 export function toggleUnderlinePatches(shapes: TextShape[]): TextPatch[] {
-  const allOn = nonNullAllOn(shapes.map((s) => s.underline), (v) => v !== "None");
-  const target = allOn ? "None" : "Single";
-  const targetOn = target !== "None";
-  const out: TextPatch[] = [];
-  for (const s of shapes) {
-    const v = s.underline;
-    if (v !== null && (v !== "None") === targetOn) continue;
-    out.push({ id: s.id, underline: target });
-  }
-  return out;
+  return toggleBooleanPatches(
+    shapes,
+    (s) => (s.underline === null ? null : s.underline !== "None"),
+    (id, on) => ({ id, underline: on ? "Single" : "None" }),
+  );
 }
 
 /** Aplica un tamaño de fuente predefinido a todas las formas cuyo tamaño no sea ya ese (incluidas las mixtas/nulas). */
@@ -445,9 +442,13 @@ export function fontSizePresetPatches(shapes: TextShape[], size: number): TextPa
 export const MIN_INDENT_LEVEL = 0;
 export const MAX_INDENT_LEVEL = 8;
 
-/** Suma `delta` niveles de sangría, con clamp 0..8. Omite formas con sangría mixta (null, p. ej. sin soporte de API 1.10). */
+/**
+ * Suma `delta` niveles de sangría, con clamp 0..8. Rechaza un `delta` no entero (`indentLevel`
+ * es un entero en Office; nunca debe recibir una fracción) o un no-op. Omite formas con sangría
+ * mixta (null, p. ej. sin soporte de API 1.10).
+ */
 export function indentPatches(shapes: TextShape[], delta: number): TextPatch[] {
-  if (!Number.isFinite(delta) || delta === 0) return [];
+  if (!Number.isInteger(delta) || delta === 0) return [];
   const out: TextPatch[] = [];
   for (const s of shapes) {
     if (s.indentLevel === null) continue;

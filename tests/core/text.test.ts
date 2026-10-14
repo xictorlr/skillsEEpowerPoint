@@ -301,4 +301,7 @@ describe("indentPatches", () => {
     expect(indentPatches([ts("a", { indentLevel: 2 })], 0)).toEqual([]);
     expect(indentPatches([ts("a", { indentLevel: 2 })], NaN)).toEqual([]);
   });
+  it("rejects a non-integer delta (indentLevel is always an integer)", () => {
+    expect(indentPatches([ts("a", { indentLevel: 2 })], 0.5)).toEqual([]);
+  });
 });

@@ -1,7 +1,7 @@
 import { matchSize, stretchToEdge } from "../core/geometry";
 import type { Command } from "./types";
 
-export const sizeCommands: Command[] = [
+export const sizeCommands: readonly Command[] = [
   { kind: "geometry", id: "match-width", section: "size", label: "Igualar ancho al primero", icon: "matchWidth", minShapes: 2, compute: (s) => matchSize(s.shapes, "width", "first") },
   { kind: "geometry", id: "match-height", section: "size", label: "Igualar alto al primero", icon: "matchHeight", minShapes: 2, compute: (s) => matchSize(s.shapes, "height", "first") },
   { kind: "geometry", id: "match-both", section: "size", label: "Igualar tamaño al primero", icon: "matchBoth", minShapes: 2, compute: (s) => matchSize(s.shapes, "both", "first") },

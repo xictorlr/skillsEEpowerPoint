@@ -1,7 +1,7 @@
 import { alignShapes, alignToSlide, arrangeMatrix, distribute, swapPositions } from "../core/geometry";
 import type { Command } from "./types";
 
-export const alignmentCommands: Command[] = [
+export const alignmentCommands: readonly Command[] = [
   { kind: "geometry", id: "align-left", section: "alignment", label: "Alinear a la izquierda", icon: "alignLeft", minShapes: 2, compute: (s) => alignShapes(s.shapes, "left") },
   { kind: "geometry", id: "align-center-h", section: "alignment", label: "Centrar horizontalmente", icon: "alignCenterH", minShapes: 2, compute: (s) => alignShapes(s.shapes, "centerH") },
   { kind: "geometry", id: "align-right", section: "alignment", label: "Alinear a la derecha", icon: "alignRight", minShapes: 2, compute: (s) => alignShapes(s.shapes, "right") },

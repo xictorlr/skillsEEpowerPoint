@@ -123,4 +123,40 @@ describe("agendaLayout", () => {
     expect(spec.items[7]!.highlighted).toBe(true);
     expect(spec.items.filter((item) => item.highlighted)).toHaveLength(1);
   });
+
+  it("keeps the full 43.2 row height for a small (3-section) deck", () => {
+    const spec = agendaLayout(slide16x9, { title: "Agenda", sections: ["Intro", "Market", "Plan"] }, 0);
+    for (const item of spec.items) {
+      expect(item.rect.height).toBeCloseTo(43.2);
+    }
+  });
+
+  it("shrinks row height so 10 sections never overflow past the bottom margin (92% of H)", () => {
+    const sections = Array.from({ length: 10 }, (_, i) => `Section ${i + 1}`);
+    const spec = agendaLayout(slide16x9, { title: "Agenda", sections }, 0);
+
+    expect(spec.items).toHaveLength(10);
+    const bottomLimit = slide16x9.height * 0.92;
+    for (const item of spec.items) {
+      expect(item.rect.top + item.rect.height).toBeLessThanOrEqual(bottomLimit + 0.01);
+    }
+  });
+
+  it("shrinks row height so 20 sections (two columns) never overflow past the bottom margin (92% of H)", () => {
+    const sections = Array.from({ length: 20 }, (_, i) => `Section ${i + 1}`);
+    const spec = agendaLayout(slide16x9, { title: "Agenda", sections }, 0);
+
+    expect(spec.items).toHaveLength(20);
+    const bottomLimit = slide16x9.height * 0.92;
+    for (const item of spec.items) {
+      expect(item.rect.top + item.rect.height).toBeLessThanOrEqual(bottomLimit + 0.01);
+    }
+  });
+
+  it("clamps sections to a maximum of 20, even with more input sections", () => {
+    const sections = Array.from({ length: 25 }, (_, i) => `Section ${i + 1}`);
+    const spec = agendaLayout(slide16x9, { title: "Agenda", sections }, 0);
+    expect(spec.items).toHaveLength(20);
+    expect(spec.items[19]!.text).toBe("Section 20");
+  });
 });

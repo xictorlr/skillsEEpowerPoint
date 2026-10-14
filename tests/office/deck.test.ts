@@ -3,6 +3,7 @@ import {
   addSlideAfter,
   addTextBox,
   createPresentation,
+  DECK_PROPS,
   deleteShapes,
   exportSlides,
   loadFontNames,
@@ -27,7 +28,7 @@ afterEach(() => {
 });
 
 describe("readDeckShapes", () => {
-  it("reads the shapes of every slide, with their slide id/index and proxies, in a single sync", async () => {
+  it("reads the shapes of every slide, with their slide id/index, proxies and textCapable, in a single sync", async () => {
     const s1a = new MockShape({ id: "s1-a", name: "Caja 1", left: 0, top: 0, width: 10, height: 10 });
     const s2a = new MockShape({
       id: "s2-a",
@@ -43,9 +44,10 @@ describe("readDeckShapes", () => {
     });
     const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [s1a] }, { id: "sl2", shapes: [s2a] }] });
 
-    const { shapes, proxies } = await readDeckShapes(ctx as never);
+    const { shapes, proxies, textCapable } = await readDeckShapes(ctx as never);
 
     expect(ctx.syncCount).toBe(1);
+    expect(ctx.slideLoads).toEqual([DECK_PROPS]);
     expect(shapes).toEqual([
       {
         slideId: "sl1",
@@ -60,23 +62,51 @@ describe("readDeckShapes", () => {
     ]);
     expect(proxies.get("s1-a")).toBe(s1a);
     expect(proxies.get("s2-a")).toBe(s2a);
+    // s1-a (GeometricShape) admite marco de texto; s2-a (Image) no.
+    expect(textCapable).toEqual(new Set(["s1-a"]));
   });
 
   it("returns empty results for a deck with no slides", async () => {
     const ctx = new MockContext([], "", { slides: [] });
-    const { shapes, proxies } = await readDeckShapes(ctx as never);
+    const { shapes, proxies, textCapable } = await readDeckShapes(ctx as never);
     expect(shapes).toEqual([]);
     expect(proxies.size).toBe(0);
+    expect(textCapable.size).toBe(0);
+  });
+
+  it("does a single sync when the deck has no placeholders", async () => {
+    const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 1, height: 1 });
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [box] }] });
+    await readDeckShapes(ctx as never);
+    expect(ctx.syncCount).toBe(1);
+  });
+
+  it("queues placeholderFormat.load(\"containedType\") and does a 2nd sync when the deck has placeholders; textCapable follows containedType", async () => {
+    const imgPh = new MockShape({ id: "ph-img", type: "Placeholder", containedType: "Image", left: 0, top: 0, width: 1, height: 1 });
+    const freePh = new MockShape({ id: "ph-free", type: "Placeholder", containedType: null, left: 0, top: 0, width: 1, height: 1 });
+    const ctx = new MockContext([], "", { slides: [{ id: "sl1", shapes: [imgPh, freePh] }] });
+
+    const { proxies, textCapable } = await readDeckShapes(ctx as never);
+
+    expect(ctx.syncCount).toBe(2);
+    expect(textCapable.has("ph-img")).toBe(false);
+    expect(textCapable.has("ph-free")).toBe(true);
+
+    // Un marcador de posición de imagen no debe tocar textFrame; uno de contenido libre sí.
+    loadHasText(proxies, ["ph-img", "ph-free"], textCapable);
+    expect(imgPh.loads).toEqual([]);
+    expect(freePh.loads).toEqual([{ path: "textFrame", props: "hasText" }]);
+    expect(ctx.invalidTouched).toBe(false);
   });
 });
 
 describe("loadHasText", () => {
-  it("queues textFrame.load(\"hasText\") only on shapes with a text frame by type", () => {
+  it("queues textFrame.load(\"hasText\") only for ids in textCapable", () => {
     const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 1, height: 1 });
     const img = new MockShape({ id: "b", type: "Image", left: 0, top: 0, width: 1, height: 1, font: null });
     const ctx = new MockContext([box, img]);
 
-    loadHasText(new Map([["a", box], ["b", img]]) as never, ["a", "b"]);
+    loadHasText(new Map([["a", box], ["b", img]]) as never, ["a", "b"], new Set(["a"]));
 
     expect(box.loads).toEqual([{ path: "textFrame", props: "hasText" }]);
     expect(img.loads).toEqual([]);
@@ -84,9 +114,9 @@ describe("loadHasText", () => {
     expect(ctx.invalidTouched).toBe(false);
   });
 
-  it("ignores ids missing from the proxies map", () => {
+  it("ignores ids missing from the proxies map, even if listed in textCapable", () => {
     const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 1, height: 1 });
-    expect(() => loadHasText(new Map([["a", box]]) as never, ["missing"])).not.toThrow();
+    expect(() => loadHasText(new Map([["a", box]]) as never, ["missing"], new Set(["missing"]))).not.toThrow();
     expect(box.loads).toEqual([]);
   });
 });
@@ -113,7 +143,7 @@ describe("deleteShapes", () => {
 });
 
 describe("loadFontNames / readFontName", () => {
-  it("queues font.load(\"name\") only on shapes with a text frame, and readFontName reads it back", () => {
+  it("queues font.load(\"name\") only for ids in textCapable, and readFontName reads it back", () => {
     const box = new MockShape({
       id: "a",
       type: "TextBox",
@@ -125,7 +155,7 @@ describe("loadFontNames / readFontName", () => {
     });
     const img = new MockShape({ id: "b", type: "Image", left: 0, top: 0, width: 1, height: 1, font: null });
 
-    loadFontNames(new Map([["a", box], ["b", img]]) as never, ["a", "b"]);
+    loadFontNames(new Map([["a", box], ["b", img]]) as never, ["a", "b"], new Set(["a"]));
 
     expect(box.loads).toEqual([{ path: "font", props: "name" }]);
     expect(img.loads).toEqual([]);
@@ -134,12 +164,12 @@ describe("loadFontNames / readFontName", () => {
 });
 
 describe("addSlideAfter", () => {
-  it("adds a slide at the end, two syncs, then moves it right after `index` (index + 1)", async () => {
+  it("adds a slide at the end and moves it right after `index` (index + 1), in a single sync", async () => {
     const ctx = new MockContext([], "", { slides: [{ id: "s1" }, { id: "s2" }] });
 
     const slide = await addSlideAfter(ctx as never, 1);
 
-    expect(ctx.syncCount).toBe(2);
+    expect(ctx.syncCount).toBe(1);
     expect(ctx.slidesList).toHaveLength(3);
     expect(slide.id).toBe("new-slide-1");
     expect(ctx.calls).toEqual([{ id: "new-slide-1", path: "moveTo", value: 2 }]);

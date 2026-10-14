@@ -1,6 +1,6 @@
 import type { Rect, ShapeModel } from "../core/types";
 import { supportsApi } from "./capabilities";
-import { hasTextFrameByType } from "./format";
+import { hasTextFrameByType, placeholderHasText } from "./format";
 import { SHAPE_PROPS } from "./selection";
 
 export interface DeckShape {
@@ -12,24 +12,36 @@ export interface DeckShape {
 /** `SHAPE_PROPS`, anidado bajo `items/shapes/`, para cargar las formas de cada diapositiva del
  *  mazo en el mismo `load()` que las diapositivas (ver `readDeckShapes`). */
 const NESTED_SHAPE_PROPS = SHAPE_PROPS.replace(/items\//g, "items/shapes/items/");
-const DECK_PROPS = `items/id,${NESTED_SHAPE_PROPS}`;
+export const DECK_PROPS = `items/id,${NESTED_SHAPE_PROPS}`;
 
 /**
- * Lee todas las formas del mazo, diapositiva por diapositiva. Un solo `sync()`: la carga de formas
- * (`items/shapes/items/...`) va anidada bajo la carga de diapositivas (ver `DECK_PROPS`).
+ * Lee todas las formas del mazo, diapositiva por diapositiva. Solo ve formas de primer nivel: las
+ * formas dentro de un grupo no se visitan (igual que `readSlideShapes`/`readSelection`, que tampoco
+ * bajan a los hijos de un grupo).
+ *
+ * Sincronización:
+ * - Sync 1: siempre. Diapositivas + formas (`items/shapes/items/...`, ver `DECK_PROPS`), anidadas
+ *   en el mismo `load()` que las diapositivas.
+ * - Sync 2: solo si el mazo tiene algún marcador de posición ("Placeholder"), para conocer su
+ *   `containedType` (de qué depende si de verdad tiene marco de texto; ver `placeholderHasText`).
+ *
+ * `textCapable` son los ids de las formas con marco de texto: por tipo (`hasTextFrameByType`) para
+ * las que no son marcador de posición, y según `containedType` para las que sí lo son.
  */
 export async function readDeckShapes(
   context: PowerPoint.RequestContext,
-): Promise<{ shapes: DeckShape[]; proxies: Map<string, PowerPoint.Shape> }> {
+): Promise<{ shapes: DeckShape[]; proxies: Map<string, PowerPoint.Shape>; textCapable: Set<string> }> {
   const slides = context.presentation.slides;
   slides.load(DECK_PROPS);
   await context.sync();
 
   const shapes: DeckShape[] = [];
   const proxies = new Map<string, PowerPoint.Shape>();
+  const allShapes: PowerPoint.Shape[] = [];
   slides.items.forEach((slide, slideIndex) => {
     for (const s of slide.shapes.items) {
       proxies.set(s.id, s);
+      allShapes.push(s);
       shapes.push({
         slideId: slide.id,
         slideIndex,
@@ -48,15 +60,31 @@ export async function readDeckShapes(
       });
     }
   });
-  return { shapes, proxies };
+
+  const placeholders = allShapes.filter((s) => String(s.type) === "Placeholder");
+  if (placeholders.length > 0) {
+    for (const p of placeholders) p.placeholderFormat.load("containedType");
+    await context.sync();
+  }
+
+  const textCapable = new Set<string>();
+  for (const s of allShapes) {
+    if (String(s.type) === "Placeholder") {
+      if (placeholderHasText(s.placeholderFormat.containedType)) textCapable.add(s.id);
+    } else if (hasTextFrameByType(String(s.type))) {
+      textCapable.add(s.id);
+    }
+  }
+
+  return { shapes, proxies, textCapable };
 }
 
-/** Encola `textFrame.load("hasText")` en las formas con marco de texto (según tipo, como en
- *  `format.ts`). El llamador hace `sync()`. */
-export function loadHasText(proxies: Map<string, PowerPoint.Shape>, ids: string[]): void {
+/** Encola `textFrame.load("hasText")` en las formas de `ids` que admiten marco de texto, según
+ *  `textCapable` (ver `readDeckShapes`). El llamador hace `sync()`. */
+export function loadHasText(proxies: Map<string, PowerPoint.Shape>, ids: string[], textCapable: Set<string>): void {
   for (const id of ids) {
-    const shape = proxies.get(id);
-    if (shape && hasTextFrameByType(String(shape.type))) shape.textFrame.load("hasText");
+    if (!textCapable.has(id)) continue;
+    proxies.get(id)?.textFrame.load("hasText");
   }
 }
 
@@ -67,12 +95,13 @@ export function deleteShapes(proxies: Map<string, PowerPoint.Shape>, ids: string
   }
 }
 
-/** Encola `font.load("name")` en las formas con marco de texto; el llamador hace `sync()`; el
- *  nombre de fuente se lee después con `readFontName`. */
-export function loadFontNames(proxies: Map<string, PowerPoint.Shape>, ids: string[]): void {
+/** Encola `font.load("name")` en las formas de `ids` que admiten marco de texto, según
+ *  `textCapable` (ver `readDeckShapes`); el llamador hace `sync()`; el nombre de fuente se lee
+ *  después con `readFontName`. */
+export function loadFontNames(proxies: Map<string, PowerPoint.Shape>, ids: string[], textCapable: Set<string>): void {
   for (const id of ids) {
-    const shape = proxies.get(id);
-    if (shape && hasTextFrameByType(String(shape.type))) shape.textFrame.textRange.font.load("name");
+    if (!textCapable.has(id)) continue;
+    proxies.get(id)?.textFrame.textRange.font.load("name");
   }
 }
 
@@ -83,17 +112,17 @@ export function readFontName(shape: PowerPoint.Shape): string | null {
 
 /**
  * Añade una diapositiva al final del mazo y la mueve justo después de la diapositiva en `index`
- * (0-based), es decir, a la posición `index + 1`. `slides.add()` no devuelve la diapositiva creada,
- * así que hace falta un sync para poder contarlas (`getCount()`) y otro para leer ese conteo e
- * indexar la última con `getItemAt` (dos syncs en total). `moveTo(index + 1)` queda encolado sin un
+ * (0-based), es decir, a la posición `index + 1`. Un solo `sync()`: `slides.add()` no devuelve la
+ * diapositiva creada, pero `getCount()` se puede encolar en el mismo lote (ambas operaciones se
+ * ejecutan en el servidor en el orden en que se encolaron, así que el conteo ya refleja la
+ * diapositiva añadida) y leerse tras ese único sync para indexar la última con `getItemAt`.
+ * `moveTo(index + 1)` (requiere PowerPointApi 1.8, el mínimo del manifiesto) queda encolado sin un
  * sync final: el llamador decide cuándo sincronizar (p. ej. junto con otras escrituras posteriores,
  * como el contenido del nuevo cuadro de texto).
  */
 export async function addSlideAfter(context: PowerPoint.RequestContext, index: number): Promise<PowerPoint.Slide> {
   const slides = context.presentation.slides;
   slides.add();
-  await context.sync();
-
   const count = slides.getCount();
   await context.sync();
 
@@ -119,8 +148,8 @@ export function addTextBox(
   font.bold = style.bold;
   if (style.color) font.color = style.color;
   shape.textFrame.wordWrap = true;
-  shape.textFrame.autoSizeSetting = "AutoSizeNone" as PowerPoint.ShapeAutoSize;
-  shape.textFrame.verticalAlignment = "Middle" as PowerPoint.TextVerticalAlignment;
+  shape.textFrame.autoSizeSetting = "AutoSizeNone";
+  shape.textFrame.verticalAlignment = "Middle";
   return shape;
 }
 

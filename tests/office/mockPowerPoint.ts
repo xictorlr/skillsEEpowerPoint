@@ -464,6 +464,8 @@ export class MockContext {
   addedSlides = 0;
   /** Formas añadidas vía `shapes.addTextBox()`, usado para generar ids únicos. */
   addedShapes = 0;
+  /** Cadena de propiedades pasada a cada `presentation.slides.load()`, en orden. */
+  slideLoads: string[] = [];
 
   constructor(public shapes: MockShape[], public slidePng = "", public opts: MockContextOptions = {}) {
     for (const s of shapes) s.ctx = this;
@@ -502,8 +504,8 @@ export class MockContext {
       },
       slides: {
         items: this.slidesList,
-        load: (_props: string) => {
-          /* no-op: los valores ya están disponibles en el mock */
+        load: (props: string) => {
+          this.slideLoads.push(props);
         },
         getItem: (id: string) => {
           const found = this.slidesList.find((s) => s.id === id);

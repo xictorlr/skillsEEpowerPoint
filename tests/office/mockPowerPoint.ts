@@ -89,7 +89,8 @@ const DEFAULT_TEXT_PROPS = {
 
 export class MockShape {
   id: string;
-  name: string;
+  /** Definida vía `Object.defineProperty` en el constructor (para registrar escrituras en `formatWrites`). */
+  name!: string;
   type: string;
   left: number;
   top: number;
@@ -110,10 +111,15 @@ export class MockShape {
   supportsFormat: boolean;
   /** Referencia al contexto que la contiene; la fija `MockContext` al construirse. */
   ctx?: MockContext;
+  /** `shape.group.ungroup()`: registra `{ path: "ungroup", value: null }` en `formatWrites`. */
+  readonly group = {
+    ungroup: () => {
+      this.formatWrites.push({ path: "ungroup", value: null });
+    },
+  };
 
   constructor(init: MockShapeInit) {
     this.id = init.id;
-    this.name = init.name ?? init.id;
     this.type = init.type ?? "GeometricShape";
     this.left = init.left;
     this.top = init.top;
@@ -133,6 +139,17 @@ export class MockShape {
         },
       });
     }
+
+    // --- name ---
+    let nameValue = init.name ?? init.id;
+    Object.defineProperty(this, "name", {
+      get: () => nameValue,
+      set: (v: string) => {
+        nameValue = v;
+        this.formatWrites.push({ path: "name", value: v });
+      },
+      enumerable: true,
+    });
 
     // --- fill ---
     const fillInit = init.fill ?? DEFAULT_FILL;
@@ -316,6 +333,61 @@ export class MockShape {
       });
     }
   }
+
+  /** `shape.setZOrder(op)`: registra `{ path: "setZOrder", value: op }` en `formatWrites`. */
+  setZOrder(op: string): void {
+    this.formatWrites.push({ path: "setZOrder", value: op });
+  }
+}
+
+export interface MockSlideInit {
+  id: string;
+  shapes?: MockShape[];
+}
+
+/**
+ * Mock mínimo de `PowerPoint.Slide`: expone las formas de la diapositiva (`shapes`), permite
+ * seleccionarlas (`setSelectedShapes`) y conserva el comportamiento previo de `getItemAt(0)`
+ * (`getImageAsBase64`, `themeColorScheme`), usado por `slideSize.ts`.
+ */
+export class MockSlide {
+  id: string;
+  index: number;
+  shapesList: MockShape[];
+  ctx: MockContext;
+
+  constructor(ctx: MockContext, id: string, index: number, shapes: MockShape[]) {
+    this.ctx = ctx;
+    this.id = id;
+    this.index = index;
+    this.shapesList = shapes;
+    for (const s of shapes) s.ctx = ctx;
+  }
+
+  get shapes() {
+    return {
+      items: this.shapesList,
+      load: (_props: string) => {
+        /* no-op: los valores ya están disponibles en el mock */
+      },
+    };
+  }
+
+  /** `slide.setSelectedShapes(ids)`: registra `ids` en `ctx.selectedShapeIds`. */
+  setSelectedShapes(ids: string[]): void {
+    this.ctx.selectedShapeIds = ids;
+  }
+
+  getImageAsBase64(options: Record<string, unknown>): { value: string } {
+    this.ctx.imageOptions = options;
+    return { value: this.ctx.slidePng };
+  }
+
+  get themeColorScheme() {
+    return {
+      getThemeColor: (name: string) => ({ value: this.ctx.opts.themeColors?.[name] ?? "" }),
+    };
+  }
 }
 
 export interface MockContextOptions {
@@ -323,6 +395,10 @@ export interface MockContextOptions {
   pageSetup?: { slideWidth: number; slideHeight: number };
   /** Mapa nombre de color de tema -> valor devuelto por `themeColorScheme.getThemeColor(name)`. */
   themeColors?: Record<string, string>;
+  /** Diapositivas de la presentación. Si se omite, se sintetiza una única diapositiva que contiene `shapes`. */
+  slides?: MockSlideInit[];
+  /** Índice (en `slides`, o en la diapositiva sintetizada) de la diapositiva activa. Por defecto 0. */
+  activeSlideIndex?: number;
 }
 
 export class MockContext {
@@ -335,8 +411,21 @@ export class MockContext {
    *  o si un test quiere forzar que el próximo `sync()` falle (p. ej. error de lectura del tema);
    *  el siguiente `sync()` lo traduce en un rechazo y lo limpia. */
   invalidTouched = false;
+  /** `presentation.setSelectedSlides(ids)`: ids registrados por la última llamada. */
+  selectedSlideIds?: string[];
+  /** `slide.setSelectedShapes(ids)`: ids registrados por la última llamada. */
+  selectedShapeIds?: string[];
+  /** `presentation.getSelectedShapes().group()`: true si se llamó. */
+  grouped = false;
+  readonly slidesList: MockSlide[];
+  activeSlideIndex: number;
+
   constructor(public shapes: MockShape[], public slidePng = "", public opts: MockContextOptions = {}) {
     for (const s of shapes) s.ctx = this;
+    this.slidesList = opts.slides
+      ? opts.slides.map((init, i) => new MockSlide(this, init.id, i, init.shapes ?? []))
+      : [new MockSlide(this, "slide-1", 0, shapes)];
+    this.activeSlideIndex = opts.activeSlideIndex ?? 0;
   }
   /**
    * Getter (en vez de propiedad de instancia con `=`): los inicializadores de campo de clase se
@@ -345,24 +434,39 @@ export class MockContext {
    * se evalúa de forma perezosa en cada acceso a `ctx.presentation`, ya con el constructor terminado.
    */
   get presentation() {
+    const activeSlide = this.slidesList[this.activeSlideIndex];
     return {
       getSelectedShapes: () => ({
         items: this.shapes,
         load: (props: string) => {
           this.loadedProps = props;
         },
+        group: () => {
+          this.grouped = true;
+        },
       }),
       getSelectedSlides: () => ({
-        getItemAt: () => ({
-          getImageAsBase64: (options: Record<string, unknown>) => {
-            this.imageOptions = options;
-            return { value: this.slidePng };
-          },
-          themeColorScheme: {
-            getThemeColor: (name: string) => ({ value: this.opts.themeColors?.[name] ?? "" }),
-          },
-        }),
+        items: activeSlide ? [activeSlide] : [],
+        load: (_props: string) => {
+          /* no-op: los valores ya están disponibles en el mock */
+        },
+        getItemAt: (_index: number) => activeSlide,
       }),
+      setSelectedSlides: (ids: string[]) => {
+        this.selectedSlideIds = ids;
+      },
+      slides: {
+        items: this.slidesList,
+        load: (_props: string) => {
+          /* no-op: los valores ya están disponibles en el mock */
+        },
+        getItem: (id: string) => {
+          const found = this.slidesList.find((s) => s.id === id);
+          if (!found) throw { code: "ItemNotFound", message: `No se encontró la diapositiva "${id}".` };
+          return found;
+        },
+        getCount: () => ({ value: this.slidesList.length }),
+      },
       pageSetup: {
         slideWidth: this.opts.pageSetup?.slideWidth ?? 0,
         slideHeight: this.opts.pageSetup?.slideHeight ?? 0,

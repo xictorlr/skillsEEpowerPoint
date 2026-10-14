@@ -14,6 +14,7 @@ const OPTS: CommandOptions = {
   nameFilter: "",
   renamePrefix: "Forma",
   shapeKind: "all",
+  agenda: { title: "Agenda", sectionsText: "" },
 };
 
 let ctx: MockContext;

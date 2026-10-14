@@ -12,6 +12,7 @@ const DEFAULT_OPTIONS: CommandOptions = {
   nameFilter: "",
   renamePrefix: "Forma",
   shapeKind: "all",
+  agenda: { title: "Agenda", sectionsText: "" },
 };
 
 const THREE_SLIDES: MockSlideInit[] = [{ id: "sl1" }, { id: "sl2" }, { id: "sl3" }];

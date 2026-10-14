@@ -80,6 +80,13 @@ export const icons: Record<string, string> = {
   group: `<svg ${S}><rect x="1.5" y="1.5" width="13" height="13" stroke-dasharray="1.5 1.5"/>${box(3.5, 3.5, 5, 5)}${box(8.5, 8.5, 4, 4)}</svg>`,
   ungroup: `<svg ${S}><rect x="1.5" y="1.5" width="5.5" height="5.5" stroke-dasharray="1.5 1.5"/><rect x="9" y="9" width="5.5" height="5.5" stroke-dasharray="1.5 1.5"/>${box(2.5, 2.5, 3.5, 3.5)}${box(10, 10, 3.5, 3.5)}</svg>`,
   inspector: `<svg ${S}><rect x="2" y="2" width="12" height="12" stroke-dasharray="1.5 1.5" ${REF}/>${box(5, 5, 6, 6)}</svg>`,
+  emptyTextSlide: `<svg ${S}><rect x="1" y="2" width="14" height="12" rx="1"/><rect x="4" y="6" width="8" height="4" stroke-dasharray="1.5 1.5" ${REF}/><path d="M5.5 7.5l5 2M10.5 7.5l-5 2" ${REF}/></svg>`,
+  emptyTextDeck: `<svg ${S}><rect x="3" y="3" width="11" height="9" rx="1" ${REF}/><rect x="1" y="5" width="11" height="9" rx="1"/><rect x="3.5" y="8" width="6" height="3" stroke-dasharray="1.5 1.5" ${REF}/><path d="M4.5 9l4 1.5M8.5 9l-4 1.5" ${REF}/></svg>`,
+  offSlide: `<svg ${S}><rect x="1" y="3" width="10" height="10" rx="1"/>${box(8, 8, 6, 5)}<rect x="8" y="8" width="6" height="5" ${REF}/></svg>`,
+  fonts: `<svg ${S}><text x="1" y="9" font-size="7" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">Aa</text><text x="8" y="14.5" font-size="7" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">Bb</text><path d="M1 15h14" stroke-dasharray="1 1" ${REF}/></svg>`,
+  newPresentation: `<svg ${S}><rect x="1" y="2" width="14" height="12" rx="1"/><path d="M8 6v6M5 9h6" ${REF}/></svg>`,
+  exportSlides: `<svg ${S}><rect x="1" y="3" width="9" height="10" rx="1"/><path d="M9 8h5.5M12 5.5 14.5 8 12 10.5" ${REF}/></svg>`,
+  agenda: `<svg ${S}><path d="M2 3h12" ${REF}/>${box(2, 6, 12, 2.5)}<path d="M2 11.5h12"/></svg>`,
 };
 
 export function iconSvg(id: string): string {

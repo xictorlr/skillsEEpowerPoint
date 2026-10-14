@@ -12,6 +12,7 @@ const DEFAULT_OPTIONS: CommandOptions = {
   nameFilter: "",
   renamePrefix: "Forma",
   shapeKind: "all",
+  agenda: { title: "Agenda", sectionsText: "" },
 };
 
 function stubPowerPoint(ctx: MockContext): void {

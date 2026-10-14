@@ -146,5 +146,7 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     nameFilter: "",
     renamePrefix: persisted.renamePrefix,
     shapeKind: "all",
+    // TODO Task 4: persistir
+    agenda: { title: "Agenda", sectionsText: "" },
   };
 }

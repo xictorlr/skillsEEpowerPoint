@@ -1,13 +1,27 @@
 import { alignmentCommands } from "./alignment";
+import { checkCommands } from "./check";
 import { colorCommands } from "./color";
 import { expertCommands } from "./expert";
 import { formatCommands } from "./format";
 import { navigationCommands } from "./navigation";
+import { presentationCommands } from "./presentation";
 import { sizeCommands } from "./size";
 import { textCommands } from "./text";
 import type { Command, SectionId } from "./types";
+import { wizardsCommands } from "./wizards";
 
-export const SECTION_ORDER: readonly SectionId[] = ["alignment", "size", "format", "color", "text", "navigation", "expert"];
+export const SECTION_ORDER: readonly SectionId[] = [
+  "alignment",
+  "size",
+  "format",
+  "color",
+  "text",
+  "navigation",
+  "expert",
+  "check",
+  "presentation",
+  "wizards",
+];
 
 export const commands: readonly Command[] = [
   ...alignmentCommands,
@@ -17,19 +31,24 @@ export const commands: readonly Command[] = [
   ...textCommands,
   ...navigationCommands,
   ...expertCommands,
+  ...checkCommands,
+  ...presentationCommands,
+  ...wizardsCommands,
 ];
 
 /** Comandos que el panel no renderiza como botón (se disparan desde otros controles): además de
  *  `set-color`/`select-kind`/`inspector-apply`, `select-by-name` y `slide-goto` los reemplazan los
  *  controles propios de sus secciones (campo de nombre y campo "Ir a", ver expertSection.ts /
  *  navigationSection.ts), que ya pasan el valor en vivo -- el botón genérico solo repetiría la
- *  diapositiva actual o el filtro vacío persistido. */
+ *  diapositiva actual o el filtro vacío persistido. `agenda-create` lo dispara el asistente de
+ *  Agenda de la sección Wizards (título + textarea de secciones), no un botón genérico. */
 export const hiddenCommandIds: ReadonlySet<string> = new Set([
   "set-color",
   "select-kind",
   "select-by-name",
   "slide-goto",
   "inspector-apply",
+  "agenda-create",
 ]);
 
 export function commandsBySection(section: SectionId): Command[] {

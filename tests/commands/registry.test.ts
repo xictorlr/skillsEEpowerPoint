@@ -11,6 +11,7 @@ const OPTS: CommandOptions = {
   nameFilter: "",
   renamePrefix: "Forma",
   shapeKind: "all",
+  agenda: { title: "Agenda", sectionsText: "" },
 };
 
 describe("registry", () => {
@@ -38,7 +39,18 @@ describe("registry", () => {
   });
 
   it("includes format and color sections and hides set-color from buttons", () => {
-    expect(SECTION_ORDER).toEqual(["alignment", "size", "format", "color", "text", "navigation", "expert"]);
+    expect(SECTION_ORDER).toEqual([
+      "alignment",
+      "size",
+      "format",
+      "color",
+      "text",
+      "navigation",
+      "expert",
+      "check",
+      "presentation",
+      "wizards",
+    ]);
     expect(commandsBySection("format").map((c) => c.id)).toEqual(["copy-format", "paste-format", "paste-fill", "paste-line", "paste-font", "paste-size"]);
     expect(commandsBySection("color").map((c) => c.id)).toEqual(["no-fill", "no-line", "transparency-up", "transparency-down"]);
     expect(findCommand("set-color")).toBeDefined();
@@ -69,5 +81,23 @@ describe("registry", () => {
     expect(disabledReason(paste, 1, false)).toMatch(/copia el formato/);
     expect(disabledReason(paste, 1, true)).toBeUndefined();
     expect(disabledReason(findCommand("copy-format")!, 1, false)).toBeUndefined();
+  });
+
+  it("includes the check, presentation and wizards sections, hiding agenda-create (driven by the Agenda wizard)", () => {
+    expect(commandsBySection("check").map((c) => c.id)).toEqual([
+      "check-empty-text-slide",
+      "check-empty-text-deck",
+      "check-offslide-select",
+      "check-fonts",
+    ]);
+    expect(commandsBySection("presentation").map((c) => c.id)).toEqual(["new-presentation", "export-selected-slides"]);
+    expect(commandsBySection("wizards").map((c) => c.id)).toEqual([]);
+    expect(findCommand("agenda-create")).toBeDefined();
+  });
+
+  it("marks check-empty-text-deck (and only that command) as needing confirmation", () => {
+    expect(findCommand("check-empty-text-deck")!.confirm).toBe(true);
+    expect(findCommand("check-empty-text-slide")!.confirm).toBeUndefined();
+    expect(findCommand("agenda-create")!.confirm).toBeUndefined();
   });
 });

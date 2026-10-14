@@ -5,7 +5,17 @@ import type { Patch, Rect, SelectionContext, SlideSize } from "../core/types";
 import type { TextPatch, TextShape } from "../core/text";
 import type { CommandOutcome } from "../office/runtime";
 
-export type SectionId = "alignment" | "size" | "format" | "color" | "text" | "navigation" | "expert";
+export type SectionId =
+  | "alignment"
+  | "size"
+  | "format"
+  | "color"
+  | "text"
+  | "navigation"
+  | "expert"
+  | "check"
+  | "presentation"
+  | "wizards";
 
 export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   alignment: "Alignment",
@@ -15,6 +25,9 @@ export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   text: "Text",
   navigation: "Navigation",
   expert: "Expert",
+  check: "Check",
+  presentation: "Presentation",
+  wizards: "Wizards",
 };
 
 export interface CommandOptions {
@@ -39,6 +52,8 @@ export interface CommandOptions {
   inspector?: Partial<Rect>;
   /** Categoría para "Seleccionar por tipo". */
   shapeKind: ShapeKind;
+  /** Título y texto del textarea (una sección por línea) del asistente "Crear agenda". */
+  agenda: { title: string; sectionsText: string };
 }
 
 export interface ActionContext {
@@ -56,6 +71,8 @@ interface BaseCommand {
   icon: string;
   minShapes: number;
   maxShapes?: number;
+  /** Si es true, el panel pide confirmación antes de ejecutar (p. ej. un borrado sobre todo el mazo). */
+  confirm?: boolean;
 }
 
 export interface GeometryCommand extends BaseCommand {

@@ -107,6 +107,11 @@ describe("agendaLayout", () => {
     expect(seventh!.rect.top).toBeCloseTo(151.2);
     expect(first!.rect.top).toBeCloseTo(151.2);
 
+    // Columns must stay within the slide's lateral margins (8% each side).
+    expect(seventh!.rect.left).toBeCloseTo(489.6);
+    expect(seventh!.rect.width).toBeCloseTo(393.6);
+    expect(seventh!.rect.left + seventh!.rect.width).toBeCloseTo(883.2);
+
     // Each column holds at most 10 rows; with 12 sections, 6 and 6.
     const leftColLeft = first!.rect.left;
     const rightColLeft = seventh!.rect.left;

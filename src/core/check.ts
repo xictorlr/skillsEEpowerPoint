@@ -56,8 +56,9 @@ const TITLE_HEIGHT_RATIO = 0.12;
 const ITEMS_TOP_RATIO = 0.28;
 const ROW_HEIGHT_RATIO = 0.08;
 const MAX_ROWS_PER_COLUMN = 10;
-const COLUMN_WIDTH_RATIO = 0.42;
 const COLUMN_GUTTER_RATIO = 0.02;
+/** Ancho de cada columna cuando se usan dos: el contenido (84 %) menos el gutter, repartido a la mitad. */
+const COLUMN_WIDTH_RATIO = (FULL_WIDTH_RATIO - COLUMN_GUTTER_RATIO) / 2;
 
 /**
  * Layout de una diapositiva de agenda para `currentIndex` (0-based): título arriba, lista de secciones

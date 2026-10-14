@@ -58,22 +58,28 @@ export class WizardSection {
   }
 
   /** Sanea título y texto de secciones juntos (para que uno no pueda quedar desincronizado con el
-   *  otro en lo persistido) y los guarda; refleja el valor saneado de vuelta en los controles. */
-  private persist(): void {
+   *  otro en lo persistido) y refleja el valor saneado de vuelta en los controles. No persiste por
+   *  sí sola: lo hacen `persist` (al editar) y `create` (al pulsar "Crear agenda", para cubrir el
+   *  caso de un clic inmediato tras escribir, antes de que el campo dispare su evento `change`). */
+  private sanitize(): { title: string; sectionsText: string } {
     const agenda = sanitizeAgenda({
       title: this.titleInput?.value ?? "",
       sectionsText: this.sectionsTextarea?.value ?? "",
     });
     if (this.titleInput) this.titleInput.value = agenda.title;
     if (this.sectionsTextarea) this.sectionsTextarea.value = agenda.sectionsText;
-    this.ctx.updatePersisted({ agenda });
+    return agenda;
+  }
+
+  private persist(): void {
+    this.ctx.updatePersisted({ agenda: this.sanitize() });
   }
 
   private async create(): Promise<void> {
     const cmd = findCommand("agenda-create");
     if (!cmd || !this.titleInput || !this.sectionsTextarea) return;
-    await this.ctx.run(cmd, {
-      agenda: { title: this.titleInput.value, sectionsText: this.sectionsTextarea.value },
-    });
+    const agenda = this.sanitize();
+    this.ctx.updatePersisted({ agenda });
+    await this.ctx.run(cmd, { agenda });
   }
 }

@@ -90,8 +90,8 @@ Limitaciones de Fase 4:
 
 **Check:** eliminar los cuadros de texto vacíos de la diapositiva activa o de toda la presentación
 (este segundo, por ser destructivo sobre varias diapositivas a la vez, pide confirmación: pulsa el
-botón una vez para armarlo y una segunda vez en los 5 segundos siguientes para ejecutarlo; cualquier
-otro clic o dejar pasar ese tiempo lo cancela sin cambiar nada); seleccionar las formas que quedan
+botón una vez para armarlo y una segunda vez en los 5 segundos siguientes para ejecutarlo; pulsar
+otro botón del panel o dejar pasar ese tiempo lo cancela sin cambiar nada); seleccionar las formas que quedan
 fuera de la diapositiva activa; listar las fuentes usadas en todo el mazo.
 
 **Presentation:** abrir una presentación nueva en vacío; exportar las diapositivas seleccionadas a
@@ -130,6 +130,8 @@ secciones se recuerdan entre sesiones.
   resto, el botón avisa sin exportar.
 - El asistente "Crear agenda" usa cuadros de texto nativos con una maquetación fija, no el diseño
   del patrón de diapositivas (layout) de la presentación.
+- "Crear agenda" requiere que el diseño en blanco exista en el patrón principal; si no, se eliminan
+  los marcadores de la diapositiva nueva.
 
 ## Desarrollo
 
@@ -195,7 +197,7 @@ Tras instalar el add-in, en una presentación de prueba:
    "Eliminar cuadros de texto vacíos (diapositiva)" borra solo el vacío; añade cuadros vacíos en
    varias diapositivas y pulsa "Eliminar cuadros de texto vacíos (mazo)": el botón pide confirmación
    (cambia a "Pulsa de nuevo para confirmar") y solo borra al pulsarlo una segunda vez dentro de los
-   5 segundos; pulsa una vez y espera (o haz clic en otro botón) para comprobar que se cancela sin
+   5 segundos; pulsa una vez y espera (o pulsa otro botón del panel) para comprobar que se cancela sin
    borrar nada. Con una forma arrastrada fuera del lienzo, "Seleccionar formas fuera de la
    diapositiva" la selecciona; "Fuentes del mazo" lista las fuentes usadas. "Nueva presentación"
    abre una presentación en blanco en otra ventana; selecciona 2 diapositivas y "Exportar

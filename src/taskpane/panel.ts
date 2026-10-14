@@ -159,12 +159,14 @@ export class Panel {
     saveOptions(this.persisted);
   }
 
-  showNotice(text: string, isError = false): void {
+  /** `durationMs` sustituye la duración por defecto (6 s si `isError`, 3 s si no); lo usa `armCommand`
+   *  para que el aviso de confirmación dure lo mismo que la ventana de 5 s en la que el botón queda armado. */
+  showNotice(text: string, isError = false, durationMs?: number): void {
     this.notice.textContent = text;
     this.notice.classList.toggle("is-error", isError);
     this.notice.hidden = false;
     window.clearTimeout(this.noticeTimer);
-    this.noticeTimer = window.setTimeout(() => (this.notice.hidden = true), isError ? 6000 : 3000);
+    this.noticeTimer = window.setTimeout(() => (this.notice.hidden = true), durationMs ?? (isError ? 6000 : 3000));
   }
 
   private button(cmd: Command): HTMLButtonElement {
@@ -192,7 +194,7 @@ export class Panel {
       entry.el.title = "Pulsa de nuevo para confirmar";
       entry.el.classList.add("is-armed");
     }
-    this.showNotice(`Pulsa de nuevo para confirmar: ${cmd.label}`);
+    this.showNotice(`Pulsa de nuevo para confirmar: ${cmd.label}`, false, 5000);
     this.armedTimer = window.setTimeout(() => this.disarm(), 5000);
   }
 

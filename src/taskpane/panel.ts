@@ -164,7 +164,11 @@ export class Panel {
       if (step) input.step = step;
       input.value = String(this.persisted.matrix[key]);
       input.addEventListener("change", () => {
-        const candidate = { ...this.persisted.matrix, [key]: Number(input.value) };
+        const raw = Number(input.value);
+        const candidate = {
+          ...this.persisted.matrix,
+          [key]: Number.isFinite(raw) ? Math.max(min, raw) : this.persisted.matrix[key],
+        };
         const matrix = sanitizeMatrix(candidate);
         input.value = String(matrix[key]);
         this.persisted = { ...this.persisted, matrix };

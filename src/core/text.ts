@@ -186,45 +186,115 @@ function alignedWordEdits(oldLine: string, newLine: string): Token[] | null {
   return applyLocalEdits(oldLine, out) === newLine ? out : null;
 }
 
+/** Ediciones de sub-rango (offsets locales a la línea) para un único par de párrafos: por palabra si se puede, si no de línea completa. */
+function lineEdits(oldLineText: string, newLineText: string): Token[] {
+  if (oldLineText === newLineText) return [];
+  const wordEdits = oldLineText.length === newLineText.length ? alignedWordEdits(oldLineText, newLineText) : null;
+  return wordEdits ?? [{ start: 0, length: oldLineText.length, text: newLineText }];
+}
+
+/** Offset absoluto (índice UTF-16 sobre el texto completo) de cada línea de `splitLines`. */
+function lineOffsets(lines: Line[]): number[] {
+  const offsets: number[] = [];
+  let acc = 0;
+  for (const l of lines) {
+    offsets.push(acc);
+    acc += l.text.length + l.sep.length;
+  }
+  return offsets;
+}
+
+/** `true` si, tras recortar espacios/tabuladores/espacios duros de los extremos, el párrafo queda vacío (como lo elimina `cleanText`). */
+function isEmptyParagraph(text: string): boolean {
+  return text.replace(/^[ \t ]+/, "").replace(/[ \t ]+$/, "").length === 0;
+}
+
+/**
+ * Cuando el número de párrafos difiere porque se eliminaron párrafos vacíos (el caso
+ * más común de `cleanText`), intenta expresar el cambio como ediciones de sub-rango en
+ * vez de una única edición de todo el texto: una edición de borrado (texto + separador)
+ * por cada párrafo vacío eliminado, más las ediciones normales de los párrafos que se
+ * conservan. Si los párrafos vacíos eliminados estaban al final, el último párrafo
+ * conservado pierde su separador; eso se expresa con una edición extra que borra solo
+ * ese separador. Devuelve `null` (para que la llamadora recurra a una única edición de
+ * todo el texto) si el número de párrafos conservados no coincide con el de `newLines`,
+ * o si algún párrafo conservado (salvo el último) tiene un separador que no coincide
+ * con el esperado.
+ */
+function emptyParagraphRemovalEdits(oldText: string, newText: string, oldLines: Line[], newLines: Line[]): TextEdit[] | null {
+  const keptIndices: number[] = [];
+  for (let i = 0; i < oldLines.length; i++) {
+    if (!isEmptyParagraph(oldLines[i]!.text)) keptIndices.push(i);
+  }
+  if (keptIndices.length !== newLines.length) return null;
+
+  const offsets = lineOffsets(oldLines);
+  const edits: TextEdit[] = [];
+  const lastKept = keptIndices.length - 1;
+  for (let k = 0; k < keptIndices.length; k++) {
+    const i = keptIndices[k]!;
+    const oldLine = oldLines[i]!;
+    const newLine = newLines[k]!;
+    const isLast = k === lastKept;
+    if (oldLine.sep !== newLine.sep) {
+      if (!isLast) return null;
+      // `newLine` es la última línea de `splitLines`, así que su separador siempre es "".
+      edits.push({ start: offsets[i]! + oldLine.text.length, length: oldLine.sep.length, text: "" });
+    }
+    for (const e of lineEdits(oldLine.text, newLine.text)) {
+      edits.push({ start: offsets[i]! + e.start, length: e.length, text: e.text });
+    }
+  }
+
+  const keptSet = new Set(keptIndices);
+  for (let i = 0; i < oldLines.length; i++) {
+    if (keptSet.has(i)) continue;
+    const l = oldLines[i]!;
+    const length = l.text.length + l.sep.length;
+    if (length > 0) edits.push({ start: offsets[i]!, length, text: "" });
+  }
+
+  edits.sort((a, b) => b.start - a.start);
+  // Red de seguridad: si reconstruir `oldText` con estas ediciones no reproduce `newText`
+  // exactamente, no son de fiar; que la llamadora recurra a la edición de todo el texto.
+  return applyLocalEdits(oldText, edits) === newText ? edits : null;
+}
+
 /**
  * Calcula ediciones de sub-rango (índices UTF-16 sobre `oldText`) que transforman
  * `oldText` en `newText`, preservando el formato de las partes sin cambios:
- * - Si el número de párrafos difiere, o si algún separador de párrafo cambia (p. ej.
- *   `\r` por `\v`), emite una única edición de reemplazo de todo el texto (no hay una
- *   correspondencia 1:1 de párrafos en la que basar ediciones parciales).
- * - Si no, compara párrafo a párrafo: si ambas líneas tokenizan al mismo número de
- *   palabras y cada par de tokens coincide en posición y longitud (p. ej. un cambio de
- *   caja), emite ediciones por palabra solo para las palabras que cambian; en cualquier
- *   otro caso (longitud de línea distinta, o palabras desalineadas por un espacio que se
- *   movió) emite una única edición para el párrafo completo.
+ * - Si el número de párrafos coincide y ningún separador de párrafo cambia, compara
+ *   párrafo a párrafo: si ambas líneas tokenizan al mismo número de palabras y cada par
+ *   de tokens coincide en posición y longitud (p. ej. un cambio de caja), emite
+ *   ediciones por palabra solo para las palabras que cambian; en cualquier otro caso
+ *   (longitud de línea distinta, o palabras desalineadas por un espacio que se movió)
+ *   emite una única edición para el párrafo completo.
+ * - Si el número de párrafos difiere, intenta primero explicarlo como la eliminación de
+ *   párrafos vacíos (ver `emptyParagraphRemovalEdits`); si no se puede, o si algún
+ *   separador cambia sin que se pueda justificar así, emite una única edición de
+ *   reemplazo de todo el texto (no hay una correspondencia 1:1 de párrafos en la que
+ *   basar ediciones parciales).
  * El resultado viene ordenado por `start` DESCENDENTE, listo para aplicarse en ese orden.
  */
 export function computeTextEdits(oldText: string, newText: string): TextEdit[] {
   if (oldText === newText) return [];
   const oldLines = splitLines(oldText);
   const newLines = splitLines(newText);
+  const wholeText = [{ start: 0, length: oldText.length, text: newText }];
   if (oldLines.length !== newLines.length) {
-    return [{ start: 0, length: oldText.length, text: newText }];
+    return emptyParagraphRemovalEdits(oldText, newText, oldLines, newLines) ?? wholeText;
   }
   for (let i = 0; i < oldLines.length; i++) {
-    if (oldLines[i]!.sep !== newLines[i]!.sep) return [{ start: 0, length: oldText.length, text: newText }];
+    if (oldLines[i]!.sep !== newLines[i]!.sep) return wholeText;
   }
+  const offsets = lineOffsets(oldLines);
   const edits: TextEdit[] = [];
-  let offset = 0;
   for (let i = 0; i < oldLines.length; i++) {
     const oldLine = oldLines[i]!;
     const newLine = newLines[i]!;
-    if (oldLine.text !== newLine.text) {
-      const wordEdits = oldLine.text.length === newLine.text.length
-        ? alignedWordEdits(oldLine.text, newLine.text)
-        : null;
-      if (wordEdits) {
-        for (const e of wordEdits) edits.push({ start: offset + e.start, length: e.length, text: e.text });
-      } else {
-        edits.push({ start: offset, length: oldLine.text.length, text: newLine.text });
-      }
+    for (const e of lineEdits(oldLine.text, newLine.text)) {
+      edits.push({ start: offsets[i]! + e.start, length: e.length, text: e.text });
     }
-    offset += oldLine.text.length + oldLine.sep.length;
   }
   edits.sort((a, b) => b.start - a.start);
   return edits;

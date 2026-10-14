@@ -92,16 +92,26 @@ describe("computeTextEdits", () => {
       { start: 4, length: 3, text: "DOS" },
     ]);
   });
-  it("falls back to a single whole-text edit when paragraph counts differ", () => {
-    expect(computeTextEdits("hola\r\rmundo", "hola\rmundo")).toEqual([
-      { start: 0, length: 11, text: "hola\rmundo" },
-    ]);
-  });
   it("falls back to a whole-line edit when word tokens are not aligned (count/position/length), even if the line length matches", () => {
     expect(computeTextEdits("a b", "ab ")).toEqual([{ start: 0, length: 3, text: "ab " }]);
   });
   it("falls back to a single whole-text edit when a separator changes, even with matching line counts", () => {
     expect(computeTextEdits("a\rb", "a\vb")).toEqual([{ start: 0, length: 3, text: "a\vb" }]);
+  });
+  it("removing an empty paragraph is a single surgical deletion edit, not a whole-text replace", () => {
+    expect(computeTextEdits("hola\r\rmundo", "hola\rmundo")).toEqual([{ start: 5, length: 1, text: "" }]);
+    expect(computeTextEdits("a\r\rb", "a\rb")).toEqual([{ start: 2, length: 1, text: "" }]);
+  });
+  it("removing trailing empty paragraphs also deletes the last kept paragraph's now-dangling separator", () => {
+    expect(computeTextEdits("a\r\r", "a")).toEqual([
+      { start: 2, length: 1, text: "" },
+      { start: 1, length: 1, text: "" },
+    ]);
+  });
+  it("still falls back to a single whole-text edit when the kept paragraphs can't be aligned with the new ones (a non-last separator mismatch)", () => {
+    expect(computeTextEdits("a\r\rb\nc", "a\vb\rc")).toEqual([
+      { start: 0, length: 6, text: "a\vb\rc" },
+    ]);
   });
 });
 
@@ -115,6 +125,12 @@ describe("computeTextEdits + applyEdits round-trip", () => {
     ["a b", "ab "],
     ["a b", "A\tb"],
     ["a\rb", "a\vb"],
+    ["a\r\rb", "a\rb"],
+    ["a\r\r", "a"],
+    ["  a  \r\r  b ", "a\rb"],
+    ["\ra", "a"],
+    ["uno\r\rdos tres", "uno\rDOS tres"],
+    ["a\r\rb\nc", "a\vb\rc"],
   ];
   it.each(cases)("applying computeTextEdits(%j, %j) to the old text reproduces the new text", (oldText, newText) => {
     expect(applyEdits(oldText, computeTextEdits(oldText, newText))).toBe(newText);

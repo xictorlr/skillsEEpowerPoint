@@ -318,34 +318,60 @@ export class MockShape {
   }
 }
 
+export interface MockContextOptions {
+  /** Si se da, `presentation.pageSetup` expone estos valores (simula PowerPointApi 1.10). */
+  pageSetup?: { slideWidth: number; slideHeight: number };
+  /** Mapa nombre de color de tema -> valor devuelto por `themeColorScheme.getThemeColor(name)`. */
+  themeColors?: Record<string, string>;
+}
+
 export class MockContext {
   syncCount = 0;
   /** Cadena de propiedades pasada al último `load()` de la colección de formas. */
   loadedProps?: string;
   /** Opciones pasadas al último `getImageAsBase64()`; queda `undefined` si nunca se llamó. */
   imageOptions?: Record<string, unknown>;
-  /** Se pone a true si se accede a `fill`/`lineFormat`/`textFrame` de una forma que no lo admite;
+  /** Se pone a true si se accede a `fill`/`lineFormat`/`textFrame` de una forma que no lo admite,
+   *  o si un test quiere forzar que el próximo `sync()` falle (p. ej. error de lectura del tema);
    *  el siguiente `sync()` lo traduce en un rechazo y lo limpia. */
   invalidTouched = false;
-  constructor(public shapes: MockShape[], public slidePng = "") {
+  constructor(public shapes: MockShape[], public slidePng = "", public opts: MockContextOptions = {}) {
     for (const s of shapes) s.ctx = this;
   }
-  presentation = {
-    getSelectedShapes: () => ({
-      items: this.shapes,
-      load: (props: string) => {
-        this.loadedProps = props;
-      },
-    }),
-    getSelectedSlides: () => ({
-      getItemAt: () => ({
-        getImageAsBase64: (options: Record<string, unknown>) => {
-          this.imageOptions = options;
-          return { value: this.slidePng };
+  /**
+   * Getter (en vez de propiedad de instancia con `=`): los inicializadores de campo de clase se
+   * evalúan antes que las asignaciones de "parameter properties" del constructor (p. ej. `opts`),
+   * así que leer `this.opts` de forma anticipada en un campo devolvería `undefined`. Como getter,
+   * se evalúa de forma perezosa en cada acceso a `ctx.presentation`, ya con el constructor terminado.
+   */
+  get presentation() {
+    return {
+      getSelectedShapes: () => ({
+        items: this.shapes,
+        load: (props: string) => {
+          this.loadedProps = props;
         },
       }),
-    }),
-  };
+      getSelectedSlides: () => ({
+        getItemAt: () => ({
+          getImageAsBase64: (options: Record<string, unknown>) => {
+            this.imageOptions = options;
+            return { value: this.slidePng };
+          },
+          themeColorScheme: {
+            getThemeColor: (name: string) => ({ value: this.opts.themeColors?.[name] ?? "" }),
+          },
+        }),
+      }),
+      pageSetup: {
+        slideWidth: this.opts.pageSetup?.slideWidth ?? 0,
+        slideHeight: this.opts.pageSetup?.slideHeight ?? 0,
+        load: (_props?: string) => {
+          /* no-op: los valores ya están disponibles en el mock */
+        },
+      },
+    };
+  }
   async sync(): Promise<void> {
     this.syncCount += 1;
     if (this.invalidTouched) {

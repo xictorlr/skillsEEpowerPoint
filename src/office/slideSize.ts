@@ -1,5 +1,6 @@
 import { pngDimensions, slideSizeFromAspect, STANDARD_SLIDE_HEIGHT_PT } from "../core/png";
 import type { SlideSize } from "../core/types";
+import { supportsApi } from "./capabilities";
 
 export const DEFAULT_SLIDE_SIZE: SlideSize = { width: 960, height: 540 };
 const CACHE_KEY = "current";
@@ -21,6 +22,10 @@ let warned = false;
  * Limitación conocida: se asume alto de diapositiva de 540 pt (ver `slideSizeFromAspect`). Para
  * presentaciones con otro alto (16:9 heredado a 720x405 pt, tamaños personalizados, etc.), pasa
  * `override` con el tamaño real; se devuelve tal cual, sin renderizar ni tocar la caché.
+ *
+ * Si el host soporta PowerPointApi 1.10 (ver `supportsApi`), se usa `presentation.pageSetup` para
+ * obtener el tamaño exacto (en puntos) de un solo sync, sin recurrir al render PNG. Si esos valores
+ * resultan inválidos (no finitos o <= 0) o la lectura falla, se cae a la heurística PNG de abajo.
  */
 export async function getSlideSize(
   context: PowerPoint.RequestContext,
@@ -31,6 +36,23 @@ export async function getSlideSize(
 
   const cached = cache.get(CACHE_KEY);
   if (cached) return cached;
+
+  if (supportsApi("1.10")) {
+    try {
+      const pageSetup = context.presentation.pageSetup;
+      pageSetup.load("slideWidth,slideHeight");
+      await context.sync();
+      const { slideWidth, slideHeight } = pageSetup;
+      if (Number.isFinite(slideWidth) && slideWidth > 0 && Number.isFinite(slideHeight) && slideHeight > 0) {
+        const size: SlideSize = { width: slideWidth, height: slideHeight };
+        cache.set(CACHE_KEY, size);
+        return size;
+      }
+    } catch {
+      // cae a la heurística PNG de abajo (p. ej. host que anuncia 1.10 pero falla al leerlo).
+    }
+  }
+
   try {
     // Si no hay ninguna diapositiva seleccionada, getItemAt(0) lanza al hacer sync();
     // el catch de abajo lo convierte en el fallback 16:9 (sin cachear: puede ser transitorio).

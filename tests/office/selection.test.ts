@@ -1,7 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readSelection } from "../../src/office/selection";
+import { getSlideSize } from "../../src/office/slideSize";
 import { PARAGRAPH_PROPS, TEXT_FRAME_PROPS, TEXT_RANGE_PROPS } from "../../src/office/text";
 import { MockContext, MockShape } from "./mockPowerPoint";
+
+function stubOffice1_10(): void {
+  vi.stubGlobal("Office", {
+    context: {
+      requirements: {
+        isSetSupported: (name: string, version: string) => name === "PowerPointApi" && version === "1.10",
+      },
+    },
+  });
+}
 
 const PNG_1x1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
@@ -197,5 +208,46 @@ describe("readSelection", () => {
     expect(selection.slide).toEqual({ width: 960, height: 540 });
     expect(ctx.imageOptions).toBeUndefined();
     expect(ctx.syncCount).toBe(1); // solo la carga de geometría; ni render ni formato
+  });
+});
+
+describe("getSlideSize with PowerPointApi 1.10", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses presentation.pageSetup verbatim, without rendering the slide, in a single sync", async () => {
+    stubOffice1_10();
+    const ctx = new MockContext([], "bad-png", { pageSetup: { slideWidth: 720, slideHeight: 405 } });
+    const size = await getSlideSize(ctx as never, new Map());
+    expect(size).toEqual({ width: 720, height: 405 });
+    expect(ctx.imageOptions).toBeUndefined();
+    expect(ctx.syncCount).toBe(1);
+  });
+
+  it("caches the pageSetup-derived size the same way as the PNG heuristic", async () => {
+    stubOffice1_10();
+    const cache = new Map();
+    const ctx1 = new MockContext([], "bad-png", { pageSetup: { slideWidth: 720, slideHeight: 405 } });
+    await getSlideSize(ctx1 as never, cache);
+    const ctx2 = new MockContext([], "bad-png", { pageSetup: { slideWidth: 1, slideHeight: 1 } });
+    const size = await getSlideSize(ctx2 as never, cache);
+    expect(size).toEqual({ width: 720, height: 405 });
+    expect(ctx2.syncCount).toBe(0); // vino de la caché, ni siquiera tocó pageSetup
+  });
+
+  it("falls back to the PNG heuristic when pageSetup reports invalid (non-finite/zero) values", async () => {
+    stubOffice1_10();
+    const ctx = new MockContext([], PNG_1x1, { pageSetup: { slideWidth: 0, slideHeight: 0 } });
+    const size = await getSlideSize(ctx as never, new Map());
+    expect(size).toEqual({ width: 540, height: 540 }); // PNG 1x1 → aspecto 1:1
+    expect(ctx.imageOptions).toEqual({ height: 540 });
+  });
+
+  it("without PowerPointApi 1.10, behaves exactly like today (PNG heuristic)", async () => {
+    const ctx = new MockContext([], PNG_1x1, { pageSetup: { slideWidth: 720, slideHeight: 405 } });
+    const size = await getSlideSize(ctx as never, new Map());
+    expect(size).toEqual({ width: 540, height: 540 });
+    expect(ctx.imageOptions).toEqual({ height: 540 });
   });
 });

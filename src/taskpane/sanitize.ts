@@ -109,9 +109,51 @@ export function sanitizeFontSizeStep(input: unknown): number {
   return Math.round(clamped * 2) / 2;
 }
 
+/** Título por defecto del asistente "Crear agenda" (sección Wizards). */
+export const DEFAULT_AGENDA_TITLE = "Agenda";
+
+/** Longitud máxima del título de la agenda. */
+export const MAX_AGENDA_TITLE_LENGTH = 60;
+
+/** Longitud máxima del texto de secciones (textarea, una sección por línea) de la agenda. */
+export const MAX_AGENDA_SECTIONS_TEXT_LENGTH = 2000;
+
+/** Título y texto de secciones persistidos del asistente "Crear agenda"; ver `commands/wizards.ts`
+ *  para el formato esperado de `sectionsText` (una sección por línea, `parseAgendaSections`). */
+export interface AgendaSettings {
+  title: string;
+  sectionsText: string;
+}
+
+/** Sanea el título: no-string o vacío tras recortar (trim) cae a DEFAULT_AGENDA_TITLE; el resultado
+ *  se acota a MAX_AGENDA_TITLE_LENGTH caracteres. */
+export function sanitizeAgendaTitle(input: unknown): string {
+  if (typeof input !== "string") return DEFAULT_AGENDA_TITLE;
+  const trimmed = input.trim();
+  return (trimmed.length > 0 ? trimmed : DEFAULT_AGENDA_TITLE).slice(0, MAX_AGENDA_TITLE_LENGTH);
+}
+
+/** Sanea el texto de secciones: un no-string se convierte en cadena vacía; el resultado se acota a
+ *  MAX_AGENDA_SECTIONS_TEXT_LENGTH caracteres. No se recorta (trim): los saltos de línea y espacios
+ *  internos son significativos para `parseAgendaSections`. */
+export function sanitizeAgendaSectionsText(input: unknown): string {
+  return typeof input === "string" ? input.slice(0, MAX_AGENDA_SECTIONS_TEXT_LENGTH) : "";
+}
+
+/** Sanea un valor arbitrario (p.ej. JSON.parse de localStorage) a una AgendaSettings válida. */
+export function sanitizeAgenda(input: unknown): AgendaSettings {
+  const obj = input !== null && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return {
+    title: sanitizeAgendaTitle(obj.title),
+    sectionsText: sanitizeAgendaSectionsText(obj.sectionsText),
+  };
+}
+
+export const DEFAULT_AGENDA: AgendaSettings = { title: DEFAULT_AGENDA_TITLE, sectionsText: "" };
+
 /** Forma persistida en localStorage (ver settings.ts): matriz, preset de tamaño de diapositiva,
- *  colores recientes, destino de color, partes a pegar por defecto, paso de tamaño de fuente y
- *  prefijo de "Renombrar numerado". */
+ *  colores recientes, destino de color, partes a pegar por defecto, paso de tamaño de fuente,
+ *  prefijo de "Renombrar numerado" y título/secciones del asistente "Crear agenda". */
 export interface PersistedOptions {
   matrix: MatrixOptions;
   slideSizePreset: SlideSizePreset;
@@ -120,6 +162,7 @@ export interface PersistedOptions {
   pasteParts: FormatParts;
   fontSizeStep: number;
   renamePrefix: string;
+  agenda: AgendaSettings;
 }
 
 export const DEFAULT_PERSISTED: PersistedOptions = {
@@ -130,6 +173,7 @@ export const DEFAULT_PERSISTED: PersistedOptions = {
   pasteParts: { fill: true, line: true, font: true, size: true },
   fontSizeStep: DEFAULT_FONT_SIZE_STEP,
   renamePrefix: DEFAULT_RENAME_PREFIX,
+  agenda: DEFAULT_AGENDA,
 };
 
 /** Convierte las opciones persistidas (ya saneadas) en las CommandOptions que consumen los comandos.
@@ -146,7 +190,6 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     nameFilter: "",
     renamePrefix: persisted.renamePrefix,
     shapeKind: "all",
-    // TODO Task 4: persistir
-    agenda: { title: "Agenda", sectionsText: "" },
+    agenda: persisted.agenda,
   };
 }

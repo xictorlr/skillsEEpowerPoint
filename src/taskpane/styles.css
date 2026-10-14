@@ -30,6 +30,7 @@ body { margin: 0; background: var(--st-bg); }
 .st-btn:hover:not(:disabled) { background: var(--st-hover); border-color: var(--st-border); }
 .st-btn:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 1px; }
 .st-btn:disabled { opacity: 0.35; cursor: default; }
+.st-btn.is-armed { border-color: var(--st-danger); }
 .st-btn svg { width: 18px; height: 18px; }
 .st-divider { border: 0; border-top: 1px solid var(--st-border); margin: 6px 10px; }
 .st-field { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: var(--st-muted); flex-wrap: wrap; max-width: 100%; min-width: 0; }
@@ -44,8 +45,11 @@ body { margin: 0; background: var(--st-bg); }
 .st-field input.st-input-text { width: 140px; max-width: 100%; }
 .st-field input.st-input-num { width: 56px; }
 .st-select.st-select-inline { width: auto; max-width: 160px; }
+.st-field-block { display: flex; flex-direction: column; gap: 2px; color: var(--st-muted); margin: 4px 0 6px; }
+.st-textarea { width: 100%; max-width: 100%; font: inherit; padding: 4px 6px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); resize: vertical; }
+.st-textarea:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 1px; }
 .st-action { font: inherit; padding: 2px 8px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); cursor: pointer; }
 .st-action:hover:not(:disabled) { background: var(--st-hover); }
 .st-action:focus-visible, .st-field input:focus-visible, .st-select:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 1px; }
 .st-action:disabled, .st-field input:disabled { opacity: .45; cursor: default; }
-[aria-busy="true"] .st-action, [aria-busy="true"] .st-field input, [aria-busy="true"] .st-select { pointer-events: none; opacity: .45; }
+[aria-busy="true"] .st-action, [aria-busy="true"] .st-field input, [aria-busy="true"] .st-select, [aria-busy="true"] .st-textarea { pointer-events: none; opacity: .45; }

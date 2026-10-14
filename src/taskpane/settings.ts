@@ -1,5 +1,6 @@
 import {
   DEFAULT_PERSISTED,
+  sanitizeAgenda,
   sanitizeColorTarget,
   sanitizeFontSizeStep,
   sanitizeMatrix,
@@ -28,6 +29,7 @@ export function loadPersistedOptions(): PersistedOptions {
       pasteParts?: unknown;
       fontSizeStep?: unknown;
       renamePrefix?: unknown;
+      agenda?: unknown;
     };
     return {
       matrix: sanitizeMatrix(parsed.matrix),
@@ -37,6 +39,7 @@ export function loadPersistedOptions(): PersistedOptions {
       pasteParts: sanitizePasteParts(parsed.pasteParts),
       fontSizeStep: sanitizeFontSizeStep(parsed.fontSizeStep),
       renamePrefix: sanitizeRenamePrefix(parsed.renamePrefix),
+      agenda: sanitizeAgenda(parsed.agenda),
     };
   } catch {
     return DEFAULT_PERSISTED;

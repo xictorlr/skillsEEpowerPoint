@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_AGENDA_TITLE,
   DEFAULT_MATRIX,
   DEFAULT_PERSISTED,
   DEFAULT_RENAME_PREFIX,
+  MAX_AGENDA_SECTIONS_TEXT_LENGTH,
+  MAX_AGENDA_TITLE_LENGTH,
   MAX_RECENT_COLORS,
   MAX_RENAME_PREFIX_LENGTH,
   SLIDE_SIZE_PRESETS,
+  sanitizeAgenda,
+  sanitizeAgendaSectionsText,
+  sanitizeAgendaTitle,
   sanitizeColorTarget,
   sanitizeFontSizeStep,
   sanitizeMatrix,
@@ -80,6 +86,7 @@ const BASE_PERSISTED = {
   pasteParts: { fill: true, line: true, font: true, size: true },
   fontSizeStep: 1,
   renamePrefix: "Forma",
+  agenda: { title: "Agenda", sectionsText: "" },
 };
 
 describe("toCommandOptions", () => {
@@ -113,6 +120,7 @@ describe("toCommandOptions", () => {
       pasteParts,
       fontSizeStep: 1,
       renamePrefix: "Forma",
+      agenda: { title: "Agenda", sectionsText: "" },
     });
     expect(result.colorTarget).toBe("line");
     expect(result.pasteParts).toEqual(pasteParts);
@@ -127,6 +135,7 @@ describe("toCommandOptions", () => {
       pasteParts: { fill: true, line: true, font: true, size: true },
       fontSizeStep: 1,
       renamePrefix: "Forma",
+      agenda: { title: "Agenda", sectionsText: "" },
     });
     expect(result.color).toBeUndefined();
   });
@@ -141,6 +150,12 @@ describe("toCommandOptions", () => {
     expect(result.renamePrefix).toBe("Caja");
     expect(result.nameFilter).toBe("");
     expect(result.shapeKind).toBe("all");
+  });
+
+  it("passes the persisted agenda through unchanged", () => {
+    const agenda = { title: "Kickoff", sectionsText: "Intro\nAgenda\nCierre" };
+    const result = toCommandOptions({ ...DEFAULT_PERSISTED, agenda });
+    expect(result.agenda).toEqual(agenda);
   });
 });
 
@@ -277,5 +292,77 @@ describe("sanitizeRenamePrefix", () => {
     const result = sanitizeRenamePrefix(long);
     expect(result).toHaveLength(MAX_RENAME_PREFIX_LENGTH);
     expect(result).toBe("x".repeat(MAX_RENAME_PREFIX_LENGTH));
+  });
+});
+
+describe("sanitizeAgendaTitle", () => {
+  it("returns the default for garbage input", () => {
+    expect(sanitizeAgendaTitle(undefined)).toBe(DEFAULT_AGENDA_TITLE);
+    expect(sanitizeAgendaTitle(null)).toBe(DEFAULT_AGENDA_TITLE);
+    expect(sanitizeAgendaTitle(42)).toBe(DEFAULT_AGENDA_TITLE);
+    expect(sanitizeAgendaTitle({})).toBe(DEFAULT_AGENDA_TITLE);
+  });
+
+  it("passes through a valid string unchanged", () => {
+    expect(sanitizeAgendaTitle("Kickoff")).toBe("Kickoff");
+  });
+
+  it("trims leading/trailing whitespace", () => {
+    expect(sanitizeAgendaTitle("  Kickoff  ")).toBe("Kickoff");
+  });
+
+  it("falls back to the default for an empty or whitespace-only string", () => {
+    expect(sanitizeAgendaTitle("")).toBe(DEFAULT_AGENDA_TITLE);
+    expect(sanitizeAgendaTitle("   ")).toBe(DEFAULT_AGENDA_TITLE);
+  });
+
+  it("caps the result at MAX_AGENDA_TITLE_LENGTH characters", () => {
+    const long = "x".repeat(MAX_AGENDA_TITLE_LENGTH + 10);
+    const result = sanitizeAgendaTitle(long);
+    expect(result).toHaveLength(MAX_AGENDA_TITLE_LENGTH);
+    expect(result).toBe("x".repeat(MAX_AGENDA_TITLE_LENGTH));
+  });
+});
+
+describe("sanitizeAgendaSectionsText", () => {
+  it("returns an empty string for garbage input", () => {
+    expect(sanitizeAgendaSectionsText(undefined)).toBe("");
+    expect(sanitizeAgendaSectionsText(null)).toBe("");
+    expect(sanitizeAgendaSectionsText(42)).toBe("");
+    expect(sanitizeAgendaSectionsText({})).toBe("");
+  });
+
+  it("passes through a valid string unchanged, including newlines", () => {
+    expect(sanitizeAgendaSectionsText("Intro\nAgenda\nCierre")).toBe("Intro\nAgenda\nCierre");
+  });
+
+  it("does not trim surrounding whitespace (left to parseAgendaSections)", () => {
+    expect(sanitizeAgendaSectionsText("  Intro  \n  Cierre  ")).toBe("  Intro  \n  Cierre  ");
+  });
+
+  it("caps the result at MAX_AGENDA_SECTIONS_TEXT_LENGTH characters", () => {
+    const long = "x".repeat(MAX_AGENDA_SECTIONS_TEXT_LENGTH + 500);
+    const result = sanitizeAgendaSectionsText(long);
+    expect(result).toHaveLength(MAX_AGENDA_SECTIONS_TEXT_LENGTH);
+  });
+});
+
+describe("sanitizeAgenda", () => {
+  it("falls back to defaults for garbage input", () => {
+    expect(sanitizeAgenda(undefined)).toEqual({ title: DEFAULT_AGENDA_TITLE, sectionsText: "" });
+    expect(sanitizeAgenda(null)).toEqual({ title: DEFAULT_AGENDA_TITLE, sectionsText: "" });
+    expect(sanitizeAgenda("not-an-object")).toEqual({ title: DEFAULT_AGENDA_TITLE, sectionsText: "" });
+  });
+
+  it("sanitizes title and sectionsText independently", () => {
+    expect(sanitizeAgenda({ title: "  Kickoff  ", sectionsText: "Intro\nCierre" })).toEqual({
+      title: "Kickoff",
+      sectionsText: "Intro\nCierre",
+    });
+  });
+
+  it("defaults a missing field while keeping the other", () => {
+    expect(sanitizeAgenda({ sectionsText: "Intro" })).toEqual({ title: DEFAULT_AGENDA_TITLE, sectionsText: "Intro" });
+    expect(sanitizeAgenda({ title: "Kickoff" })).toEqual({ title: "Kickoff", sectionsText: "" });
   });
 });

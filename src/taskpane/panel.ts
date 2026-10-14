@@ -13,6 +13,7 @@ import { FormatSection } from "./sections/formatSection";
 import { NavigationSection } from "./sections/navigationSection";
 import { SettingsSection } from "./sections/settingsSection";
 import type { SectionContext } from "./sections/types";
+import { WizardSection } from "./sections/wizardSection";
 import { toCommandOptions } from "./sanitize";
 import { loadPersistedOptions, saveOptions, type PersistedOptions } from "./settings";
 
@@ -27,6 +28,11 @@ export class Panel {
   private noticeTimer: number | undefined;
   private lastCount: number | null = null;
   private busy = false;
+  /** id del comando armado (confirmación de dos pasos, ver `run`) a la espera de un segundo clic,
+   *  o `undefined` si ninguno lo está. */
+  private armedCommandId: string | undefined;
+  /** Temporizador que desarma `armedCommandId` a los 5 s si no llega el segundo clic. */
+  private armedTimer: number | undefined;
   private colorSection: ColorSection | undefined;
   private navigationSection: NavigationSection | undefined;
   private expertSection: ExpertSection | undefined;
@@ -55,6 +61,7 @@ export class Panel {
     const colorSection = new ColorSection(ctx);
     const navigationSection = new NavigationSection(ctx);
     const expertSection = new ExpertSection(ctx);
+    const wizardSection = new WizardSection(ctx);
     const settingsSection = new SettingsSection(ctx);
     this.colorSection = colorSection;
     this.navigationSection = navigationSection;
@@ -75,6 +82,7 @@ export class Panel {
       if (section === "color") sec.append(...colorSection.render());
       if (section === "navigation") sec.append(...navigationSection.render());
       if (section === "expert") sec.append(...expertSection.render());
+      if (section === "wizards") sec.append(...wizardSection.render());
       this.root.appendChild(sec);
     });
     this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
@@ -96,6 +104,10 @@ export class Panel {
     const transparencyBlocked = this.persisted.colorTarget === "font";
     const noPasteParts = Object.values(this.persisted.pasteParts).every((v) => !v);
     for (const { el, cmd } of this.buttons.values()) {
+      // El botón armado (confirmación de dos pasos) conserva su título/estado "Pulsa de nuevo para
+      // confirmar" hasta que el segundo clic lo ejecute, se desarme por otro clic o expire a los 5 s
+      // (ver `armCommand`/`disarm`): no se recalcula aquí aunque cambie la selección mientras tanto.
+      if (cmd.id === this.armedCommandId) continue;
       let override: string | undefined;
       if (transparencyBlocked && TRANSPARENCY_COMMAND_IDS.has(cmd.id)) override = TRANSPARENCY_FONT_REASON;
       else if (cmd.id === "paste-format" && noPasteParts) override = "Marca al menos una parte.";
@@ -166,8 +178,50 @@ export class Panel {
     return el;
   }
 
+  /**
+   * Arma un comando destructivo (`cmd.confirm`): cambia el título del botón a "Pulsa de nuevo para
+   * confirmar", lo marca con `is-armed` y muestra un aviso. Si llega un segundo clic sobre el mismo
+   * comando dentro de los 5 s, `run` lo ejecuta; si no, `disarm` lo revierte (otro clic cualquiera o
+   * el temporizador).
+   */
+  private armCommand(cmd: Command): void {
+    this.disarm();
+    this.armedCommandId = cmd.id;
+    const entry = this.buttons.get(cmd.id);
+    if (entry) {
+      entry.el.title = "Pulsa de nuevo para confirmar";
+      entry.el.classList.add("is-armed");
+    }
+    this.showNotice(`Pulsa de nuevo para confirmar: ${cmd.label}`);
+    this.armedTimer = window.setTimeout(() => this.disarm(), 5000);
+  }
+
+  /** Revierte `armCommand`: quita `is-armed` y recalcula el título/estado real del botón. No-op si
+   *  no hay nada armado. */
+  private disarm(): void {
+    window.clearTimeout(this.armedTimer);
+    this.armedTimer = undefined;
+    const id = this.armedCommandId;
+    if (id === undefined) return;
+    this.armedCommandId = undefined;
+    this.buttons.get(id)?.el.classList.remove("is-armed");
+    this.setSelectionCount(this.lastCount);
+  }
+
   private async run(cmd: Command, extra?: Partial<CommandOptions>): Promise<CommandResult | undefined> {
     if (this.busy) return undefined;
+    if (cmd.confirm) {
+      // Primer clic (o un comando `confirm` distinto del que estaba armado): arma y espera el
+      // segundo clic, sin ejecutar nada todavía. Segundo clic sobre el mismo comando: desarma y sigue.
+      if (this.armedCommandId !== cmd.id) {
+        this.armCommand(cmd);
+        return undefined;
+      }
+      this.disarm();
+    } else if (this.armedCommandId !== undefined) {
+      // Cualquier otro clic (comando sin confirmación) desarma lo que estuviera pendiente.
+      this.disarm();
+    }
     this.busy = true;
     for (const { el } of this.buttons.values()) el.disabled = true;
     this.root.setAttribute("aria-busy", "true");

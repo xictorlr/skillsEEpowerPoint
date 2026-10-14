@@ -41,3 +41,11 @@ body { margin: 0; background: var(--st-bg); }
 .st-check { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; color: var(--st-muted); }
 .st-subtitle { color: var(--st-muted); font-size: 11px; margin: 4px 0 2px; }
 .st-field input[type="color"] { width: 28px; height: 22px; padding: 0; }
+.st-field input.st-input-text { width: 140px; max-width: 100%; }
+.st-field input.st-input-num { width: 56px; }
+.st-select.st-select-inline { width: auto; max-width: 160px; }
+.st-action { font: inherit; padding: 2px 8px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); cursor: pointer; }
+.st-action:hover:not(:disabled) { background: var(--st-hover); }
+.st-action:focus-visible, .st-field input:focus-visible, .st-select:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 1px; }
+.st-action:disabled, .st-field input:disabled { opacity: .45; cursor: default; }
+[aria-busy="true"] .st-action, [aria-busy="true"] .st-field input, [aria-busy="true"] .st-select { pointer-events: none; opacity: .45; }

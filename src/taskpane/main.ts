@@ -26,9 +26,6 @@ if (typeof Office === "undefined") {
       return;
     }
 
-    const panel = new Panel(root, notice);
-    panel.render();
-
     let seq = 0;
     let timer: number | undefined;
     const refresh = async () => {
@@ -40,6 +37,13 @@ if (typeof Office === "undefined") {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => void refresh(), 120);
     };
+
+    // `scheduleRefresh` se pasa al panel para que, tras cualquier comando, se vuelva a leer la
+    // selección (índice de diapositiva, inspector, colores del tema), igual que tras un cambio de
+    // selección del usuario.
+    const panel = new Panel(root, notice, scheduleRefresh);
+    panel.render();
+
     void refresh();
     Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, scheduleRefresh, (result) => {
       if (result.status === Office.AsyncResultStatus.Failed) {

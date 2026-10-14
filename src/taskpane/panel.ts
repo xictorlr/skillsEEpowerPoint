@@ -2,6 +2,7 @@ import { getClipboard } from "../commands/clipboard";
 import { executeCommand } from "../commands/execute";
 import { SECTION_ORDER, commandsBySection, disabledReason } from "../commands/registry";
 import { SECTION_LABELS, type Command, type CommandOptions } from "../commands/types";
+import { supportsApi } from "../office/capabilities";
 import type { CommandResult } from "../office/runtime";
 import type { SelectionSummary } from "../office/summary";
 import { getThemeColors } from "../office/theme";
@@ -29,11 +30,20 @@ export class Panel {
   private colorSection: ColorSection | undefined;
   private navigationSection: NavigationSection | undefined;
   private expertSection: ExpertSection | undefined;
-  /** Diapositiva activa del último `setSummary`; `undefined` antes del primer resumen, para forzar
-   *  la primera lectura de colores del tema aunque esa diapositiva sea `null`. */
+  /** Diapositiva activa del último `setSummary` con resumen no nulo; `undefined` antes del primer
+   *  resumen, para forzar la primera lectura de colores del tema aunque esa diapositiva sea `null`. */
   private lastSlideId: string | null | undefined;
+  /** Token del último `refreshThemeColors` en curso: descarta una respuesta tardía si mientras
+   *  tanto se lanzó otra lectura (p. ej. dos cambios de diapositiva seguidos). */
+  private themeSeq = 0;
 
-  constructor(private root: HTMLElement, private notice: HTMLElement) {
+  constructor(
+    private root: HTMLElement,
+    private notice: HTMLElement,
+    /** Vuelve a pedir un resumen de selección (debounce incluido); ver `main.ts`. Se llama tras
+     *  cualquier comando para que Navigation/Expert/Color reflejen su efecto. */
+    private requestRefresh: () => void,
+  ) {
     notice.setAttribute("role", "status");
     notice.setAttribute("aria-live", "polite");
   }
@@ -106,19 +116,27 @@ export class Panel {
     this.setSelectionCount(summary?.count ?? null);
     this.navigationSection?.update(summary);
     this.expertSection?.update(summary);
-    const slideId = summary?.slideId ?? null;
-    if (slideId !== this.lastSlideId) {
-      this.lastSlideId = slideId;
+    // Sin resumen (no se pudo leer la selección) no sabemos si la diapositiva cambió: se deja
+    // `lastSlideId` como está para no perder la próxima comparación válida.
+    if (summary && summary.slideId !== this.lastSlideId) {
+      this.lastSlideId = summary.slideId;
       void this.refreshThemeColors();
     }
   }
 
   private async refreshThemeColors(): Promise<void> {
+    const id = ++this.themeSeq;
+    // Sin PowerPointApi 1.10 `getThemeColors` siempre devolvería null (ver office/theme.ts): se
+    // evita el `PowerPoint.run` de más.
+    if (!supportsApi("1.10")) {
+      this.colorSection?.setThemeColors(null);
+      return;
+    }
     try {
       const colors = await PowerPoint.run((context) => getThemeColors(context));
-      this.colorSection?.setThemeColors(colors);
+      if (id === this.themeSeq) this.colorSection?.setThemeColors(colors);
     } catch {
-      this.colorSection?.setThemeColors(null);
+      if (id === this.themeSeq) this.colorSection?.setThemeColors(null);
     }
   }
 
@@ -164,6 +182,10 @@ export class Panel {
       this.busy = false;
       this.root.removeAttribute("aria-busy");
       this.setSelectionCount(this.lastCount);
+      // Cualquier comando puede haber movido/reescalado/renombrado/reordenado la selección o
+      // cambiado de diapositiva: se pide un resumen nuevo para que Navigation/Expert/Color (vía
+      // setSummary) lo reflejen, no solo tras un DocumentSelectionChanged del usuario.
+      this.requestRefresh();
     }
   }
 

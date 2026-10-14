@@ -6,7 +6,7 @@ import type { SectionContext } from "./types";
  * Sección "Navigation": los botones de ir a primera/anterior/siguiente/última diapositiva ya los
  * renderiza el panel (son los comandos de la sección, ver `commandsBySection`). Esta clase añade
  * el indicador "N / M" y el campo "Ir a diapositiva", que ejecuta `slide-goto` con un `gotoSlide`
- * explícito (el botón estándar de `slide-goto`, sin este campo, repite la diapositiva actual).
+ * explícito (el botón estándar de `slide-goto` está oculto: ver `hiddenCommandIds` en registry.ts).
  */
 export class NavigationSection {
   private labelEl: HTMLElement | undefined;
@@ -22,11 +22,16 @@ export class NavigationSection {
   update(summary: SelectionSummary | null): void {
     const count = summary?.slideCount ?? 0;
     const index = summary?.slideIndex ?? 0;
-    if (this.labelEl) this.labelEl.textContent = count > 0 ? `${index + 1} / ${count}` : "— / —";
+    const slideId = summary?.slideId ?? null;
+    if (this.labelEl) {
+      // Sin diapositivas, no se sabe la posición ("— / —"); con diapositivas pero sin ninguna
+      // activa identificable (`slideId` null), se conoce el total pero no la posición ("— / N").
+      this.labelEl.textContent = count <= 0 ? "— / —" : slideId === null ? `— / ${count}` : `${index + 1} / ${count}`;
+    }
     if (this.gotoInput) {
       this.gotoInput.max = count > 0 ? String(count) : "";
       if (document.activeElement !== this.gotoInput) {
-        this.gotoInput.placeholder = count > 0 ? String(index + 1) : "";
+        this.gotoInput.placeholder = count > 0 && slideId !== null ? String(index + 1) : "";
       }
     }
   }
@@ -35,7 +40,6 @@ export class NavigationSection {
     const field = document.createElement("div");
     field.className = "st-field";
     field.setAttribute("role", "status");
-    field.setAttribute("aria-label", "Diapositiva actual");
     field.append("Diapositiva ");
     this.labelEl = document.createElement("strong");
     this.labelEl.textContent = "— / —";
@@ -55,13 +59,17 @@ export class NavigationSection {
     const input = document.createElement("input");
     input.type = "number";
     input.min = "1";
-    input.style.maxWidth = "160px";
+    input.className = "st-input-num";
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") void this.goto();
+    });
     this.gotoInput = input;
     field.appendChild(input);
     row.appendChild(field);
 
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "st-action";
     button.textContent = "Ir";
     button.addEventListener("click", () => void this.goto());
     row.appendChild(button);

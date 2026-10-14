@@ -44,9 +44,8 @@ describe("registry", () => {
     expect(findCommand("set-color")).toBeDefined();
   });
 
-  it("hides select-kind and inspector-apply from buttons but keeps the rest of expert visible", () => {
+  it("hides select-kind, select-by-name and inspector-apply from buttons but keeps the rest of expert visible", () => {
     expect(commandsBySection("expert").map((c) => c.id)).toEqual([
-      "select-by-name",
       "rename-numbered",
       "z-front",
       "z-forward",
@@ -56,11 +55,13 @@ describe("registry", () => {
       "ungroup",
     ]);
     expect(findCommand("select-kind")).toBeDefined();
+    expect(findCommand("select-by-name")).toBeDefined();
     expect(findCommand("inspector-apply")).toBeDefined();
   });
 
-  it("includes navigation commands", () => {
-    expect(commandsBySection("navigation").map((c) => c.id)).toEqual(["slide-first", "slide-prev", "slide-next", "slide-last", "slide-goto"]);
+  it("includes navigation commands, hiding slide-goto (replaced by the 'Ir a' field)", () => {
+    expect(commandsBySection("navigation").map((c) => c.id)).toEqual(["slide-first", "slide-prev", "slide-next", "slide-last"]);
+    expect(findCommand("slide-goto")).toBeDefined();
   });
 
   it("disables paste commands without a clipboard", () => {

@@ -88,8 +88,9 @@ export const DEFAULT_RENAME_PREFIX = "Forma";
 
 /** Sanea un valor arbitrario a un prefijo válido para "Renombrar numerado": recortado (trim) y
  *  acotado a MAX_RENAME_PREFIX_LENGTH caracteres. Un valor no-string usa el valor por defecto; una
- *  cadena vacía (tras recortar) es válida -- `numberedNames` ya trata un prefijo vacío como "sin
- *  prefijo" (solo el número), y `rename-numbered` cae a "Forma" si queda vacío. */
+ *  cadena vacía (tras recortar) se persiste tal cual -- no hace falta que esta función la sustituya
+ *  por "Forma", porque el comando `rename-numbered` ya cae a "Forma" si el prefijo que recibe
+ *  está vacío (ver `options.renamePrefix || "Forma"` en commands/expert.ts). */
 export function sanitizeRenamePrefix(input: unknown): string {
   if (typeof input !== "string") return DEFAULT_RENAME_PREFIX;
   return input.trim().slice(0, MAX_RENAME_PREFIX_LENGTH);

@@ -66,7 +66,8 @@ la diapositiva activa.
 
 **Expert:** seleccionar por tipo (Todas, Texto, Formas, Imágenes, Líneas, Tablas, Grupos, Otras,
 sobre la diapositiva activa), seleccionar por nombre (subcadena, sin distinguir mayúsculas ni
-acentos), renombrar numerado (prefijo configurable, orden de lectura), traer al frente / adelante
+acentos), renombrar numerado (prefijo configurable y persistido, orden de lectura; si lo dejas
+vacío, se usa "Forma"), traer al frente / adelante
 / enviar atrás / al fondo, agrupar / desagrupar, e inspector de posición y tamaño (X, Y, Ancho,
 Alto en puntos) que lee y escribe la caja envolvente de la selección en vivo.
 

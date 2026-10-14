@@ -33,6 +33,9 @@ export class ExpertSection {
   private kindSelect: HTMLSelectElement | undefined;
   private nameInput: HTMLInputElement | undefined;
   private inspectorInputs = new Map<keyof Rect, HTMLInputElement>();
+  /** Última caja envolvente recibida en `update()`; restaura un campo del inspector si el usuario
+   *  lo deja vacío o con un valor no numérico (ver `applyInspectorField`). */
+  private lastBbox: Rect | null = null;
 
   constructor(private ctx: SectionContext) {}
 
@@ -43,6 +46,7 @@ export class ExpertSection {
   /** Rellena el inspector con la caja envolvente de la selección; sin selección, lo deshabilita. */
   update(summary: SelectionSummary | null): void {
     const bbox = summary && summary.count > 0 ? summary.bbox : null;
+    this.lastBbox = bbox;
     for (const [key, input] of this.inspectorInputs) {
       input.disabled = bbox === null;
       if (document.activeElement === input) continue;
@@ -57,8 +61,8 @@ export class ExpertSection {
     row.setAttribute("aria-label", "Seleccionar por tipo");
 
     const select = document.createElement("select");
-    select.className = "st-select";
-    select.style.maxWidth = "160px";
+    select.className = "st-select st-select-inline";
+    select.setAttribute("aria-label", "Tipo de forma");
     for (const opt of KIND_OPTIONS) {
       const option = document.createElement("option");
       option.value = opt.value;
@@ -70,7 +74,9 @@ export class ExpertSection {
 
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "st-action";
     button.textContent = "Seleccionar";
+    button.setAttribute("aria-label", "Seleccionar por tipo");
     button.addEventListener("click", () => void this.selectKind());
     row.appendChild(button);
 
@@ -88,14 +94,19 @@ export class ExpertSection {
     field.append("Nombre contiene");
     const input = document.createElement("input");
     input.type = "text";
-    input.style.maxWidth = "160px";
+    input.className = "st-input-text";
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") void this.selectByName();
+    });
     this.nameInput = input;
     field.appendChild(input);
     row.appendChild(field);
 
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "st-action";
     button.textContent = "Seleccionar";
+    button.setAttribute("aria-label", "Seleccionar por nombre");
     button.addEventListener("click", () => void this.selectByName());
     row.appendChild(button);
 
@@ -108,8 +119,8 @@ export class ExpertSection {
     field.append("Prefijo");
     const input = document.createElement("input");
     input.type = "text";
+    input.className = "st-input-text";
     input.maxLength = 40;
-    input.style.maxWidth = "160px";
     input.value = this.ctx.persisted.renamePrefix;
     input.addEventListener("change", () => {
       const renamePrefix = sanitizeRenamePrefix(input.value);
@@ -137,6 +148,7 @@ export class ExpertSection {
       field.append(f.label);
       const input = document.createElement("input");
       input.type = "number";
+      input.className = "st-input-num";
       input.step = "0.1";
       input.disabled = true;
       input.addEventListener("change", () => void this.applyInspectorField(f.key, input));
@@ -165,9 +177,13 @@ export class ExpertSection {
   private async applyInspectorField(key: keyof Rect, input: HTMLInputElement): Promise<void> {
     const cmd = findCommand("inspector-apply");
     if (!cmd) return;
-    const raw = Number(input.value);
-    if (!Number.isFinite(raw)) return;
-    const value = Math.round(raw * 10) / 10;
+    // Vacío o no numérico: no hay un valor válido que aplicar. Se restaura el último valor
+    // conocido de la caja envolvente en vez de mandar un patch con NaN/undefined.
+    if (input.value.trim() === "" || !Number.isFinite(input.valueAsNumber)) {
+      input.value = this.lastBbox ? this.lastBbox[key].toFixed(1) : "";
+      return;
+    }
+    const value = Math.round(input.valueAsNumber * 10) / 10;
     input.value = value.toFixed(1);
     await this.ctx.run(cmd, { inspector: { [key]: value } });
   }

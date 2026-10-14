@@ -19,8 +19,18 @@ export const commands: readonly Command[] = [
   ...expertCommands,
 ];
 
-/** Comandos que el panel no renderiza como botón (se disparan desde otros controles). */
-export const hiddenCommandIds: ReadonlySet<string> = new Set(["set-color", "select-kind", "inspector-apply"]);
+/** Comandos que el panel no renderiza como botón (se disparan desde otros controles): además de
+ *  `set-color`/`select-kind`/`inspector-apply`, `select-by-name` y `slide-goto` los reemplazan los
+ *  controles propios de sus secciones (campo de nombre y campo "Ir a", ver expertSection.ts /
+ *  navigationSection.ts), que ya pasan el valor en vivo -- el botón genérico solo repetiría la
+ *  diapositiva actual o el filtro vacío persistido. */
+export const hiddenCommandIds: ReadonlySet<string> = new Set([
+  "set-color",
+  "select-kind",
+  "select-by-name",
+  "slide-goto",
+  "inspector-apply",
+]);
 
 export function commandsBySection(section: SectionId): Command[] {
   return commands.filter((c) => c.section === section && !hiddenCommandIds.has(c.id));

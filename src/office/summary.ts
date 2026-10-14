@@ -32,26 +32,25 @@ function union(items: ReadonlyArray<Pick<Rect, "left" | "top" | "width" | "heigh
 
 /**
  * Lee el resumen de la selección actual con un único `sync()`: geometría de las formas
- * seleccionadas, la diapositiva activa y el total de diapositivas (para poder derivar el índice).
+ * seleccionadas, la diapositiva activa (id e índice, vía `Slide.index`, disponible desde
+ * PowerPointApi 1.8 -- el mínimo del manifiesto, no hace falta `supportsApi`) y el total de
+ * diapositivas (`slides.getCount()`, sin cargar la lista completa de ids).
  */
 export async function readSelectionSummary(context: PowerPoint.RequestContext): Promise<SelectionSummary> {
   const selectedShapes = context.presentation.getSelectedShapes();
   selectedShapes.load("items/left,items/top,items/width,items/height");
   const selectedSlides = context.presentation.getSelectedSlides();
-  selectedSlides.load("items/id");
-  const slides = context.presentation.slides;
-  slides.load("items/id");
+  selectedSlides.load("items/id,items/index");
+  const count = context.presentation.slides.getCount();
   await context.sync();
 
-  const ids = slides.items.map((s) => s.id);
-  const activeId = selectedSlides.items[0]?.id ?? null;
-  const slideIndex = activeId !== null ? Math.max(0, ids.indexOf(activeId)) : 0;
+  const active = selectedSlides.items[0];
 
   return {
     count: selectedShapes.items.length,
-    slideId: activeId,
-    slideIndex,
-    slideCount: ids.length,
+    slideId: active?.id ?? null,
+    slideIndex: active?.index ?? 0,
+    slideCount: count.value,
     bbox: union(selectedShapes.items),
   };
 }

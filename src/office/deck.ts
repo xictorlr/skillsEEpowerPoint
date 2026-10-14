@@ -112,18 +112,22 @@ export function readFontName(shape: PowerPoint.Shape): string | null {
 
 /**
  * Añade una diapositiva al final del mazo y la mueve justo después de la diapositiva en `index`
- * (0-based), es decir, a la posición `index + 1`. Si se da `layoutId` (ver `findBlankLayoutId`), la
- * nueva diapositiva nace con ese layout en vez del layout por defecto. Un solo `sync()`:
- * `slides.add()` no devuelve la diapositiva creada, pero `getCount()` se puede encolar en el mismo
- * lote (ambas operaciones se ejecutan en el servidor en el orden en que se encolaron, así que el
- * conteo ya refleja la diapositiva añadida) y leerse tras ese único sync para indexar la última con
- * `getItemAt`. `moveTo(index + 1)` (requiere PowerPointApi 1.8, el mínimo del manifiesto) queda
- * encolado sin un sync final: el llamador decide cuándo sincronizar (p. ej. junto con otras
- * escrituras posteriores, como el contenido del nuevo cuadro de texto).
+ * (0-based), es decir, a la posición `index + 1`. Si se da `layout` (ver `findBlankLayout`), la
+ * nueva diapositiva nace con ese layout (de ese slide master) en vez del layout por defecto. Un
+ * solo `sync()`: `slides.add()` no devuelve la diapositiva creada, pero `getCount()` se puede
+ * encolar en el mismo lote (ambas operaciones se ejecutan en el servidor en el orden en que se
+ * encolaron, así que el conteo ya refleja la diapositiva añadida) y leerse tras ese único sync para
+ * indexar la última con `getItemAt`. `moveTo(index + 1)` (requiere PowerPointApi 1.8, el mínimo del
+ * manifiesto) queda encolado sin un sync final: el llamador decide cuándo sincronizar (p. ej. junto
+ * con otras escrituras posteriores, como el contenido del nuevo cuadro de texto).
  */
-export async function addSlideAfter(context: PowerPoint.RequestContext, index: number, layoutId?: string): Promise<PowerPoint.Slide> {
+export async function addSlideAfter(
+  context: PowerPoint.RequestContext,
+  index: number,
+  layout?: { slideMasterId: string; layoutId: string },
+): Promise<PowerPoint.Slide> {
   const slides = context.presentation.slides;
-  if (layoutId) slides.add({ layoutId });
+  if (layout) slides.add({ slideMasterId: layout.slideMasterId, layoutId: layout.layoutId });
   else slides.add();
   const count = slides.getCount();
   await context.sync();
@@ -134,18 +138,24 @@ export async function addSlideAfter(context: PowerPoint.RequestContext, index: n
 }
 
 /**
- * Busca el primer layout "en blanco" entre los layouts del primer slide master (el único relevante
- * para añadir diapositivas: `slides.add({ layoutId })` toma el layout de ese master). Un solo
- * `sync()`. Devuelve `undefined` si ninguno coincide, o si falla la lectura (p. ej. la presentación
- * no tiene slide masters) — nunca lanza.
+ * Busca el primer layout "en blanco" entre los layouts del primer slide master, y devuelve también
+ * el id de ese slide master: `slides.add({ slideMasterId, layoutId })` necesita ambos para ubicar el
+ * layout sin ambigüedad (el mismo `layoutId` podría existir en otro master). Un solo `sync()`.
+ * Devuelve `undefined` si ningún layout coincide, o si falla la lectura (p. ej. la presentación no
+ * tiene slide masters) — nunca lanza.
  */
-export async function findBlankLayoutId(context: PowerPoint.RequestContext): Promise<string | undefined> {
+export async function findBlankLayout(
+  context: PowerPoint.RequestContext,
+): Promise<{ slideMasterId: string; layoutId: string } | undefined> {
   try {
-    const layouts = context.presentation.slideMasters.getItemAt(0).layouts;
+    const master = context.presentation.slideMasters.getItemAt(0);
+    master.load("id");
+    const layouts = master.layouts;
     layouts.load("items/id,items/name");
     await context.sync();
 
-    return layouts.items.find((l) => /blank|en blanco|vac[ií]o/i.test(l.name))?.id;
+    const blank = layouts.items.find((l) => /blank|en blanco|vac[ií]o/i.test(l.name));
+    return blank ? { slideMasterId: master.id, layoutId: blank.id } : undefined;
   } catch {
     return undefined;
   }
@@ -153,7 +163,7 @@ export async function findBlankLayoutId(context: PowerPoint.RequestContext): Pro
 
 /**
  * Borra los marcadores de posición ("Placeholder") de `slide`: red de seguridad para cuando
- * `findBlankLayoutId` no encontró ningún layout en blanco y la diapositiva añadida trae los
+ * `findBlankLayout` no encontró ningún layout en blanco y la diapositiva añadida trae los
  * marcadores del layout por defecto. Un solo `sync()` para conocer el tipo de cada forma; los
  * `delete()` quedan encolados sin un sync final (el llamador decide cuándo sincronizar). Devuelve
  * cuántos se encolaron para borrar.

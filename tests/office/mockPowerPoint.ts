@@ -444,6 +444,8 @@ export interface MockContextOptions {
   activeSlideIndex?: number;
   /** Layouts de `presentation.slideMasters.getItemAt(0).layouts`. Por defecto `DEFAULT_LAYOUTS`. */
   layouts?: Array<{ id: string; name: string }>;
+  /** Id de `presentation.slideMasters.getItemAt(0)`. Por defecto `"master-1"`. */
+  masterId?: string;
   /** Cantidad de marcadores de posición ("Placeholder") con los que nace cada diapositiva creada
    *  vía `slides.add()`, para poder probar `deletePlaceholders`. Por defecto 0. */
   newSlidePlaceholders?: number;
@@ -547,6 +549,10 @@ export class MockContext {
       },
       slideMasters: {
         getItemAt: (_index: number) => ({
+          id: this.opts.masterId ?? "master-1",
+          load: (_props: string) => {
+            /* no-op: los valores ya están disponibles en el mock */
+          },
           layouts: {
             items: this.opts.layouts ?? DEFAULT_LAYOUTS,
             load: (_props: string) => {

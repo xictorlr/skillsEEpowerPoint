@@ -1,42 +1,15 @@
 import { getClipboard } from "../commands/clipboard";
 import { executeCommand } from "../commands/execute";
-import { SECTION_ORDER, commandsBySection, disabledReason, findCommand } from "../commands/registry";
+import { SECTION_ORDER, commandsBySection, disabledReason } from "../commands/registry";
 import { SECTION_LABELS, type Command, type CommandOptions } from "../commands/types";
-import { DEFAULT_PALETTE, normalizeHex, pushRecent } from "../core/color";
-import type { ColorTarget, FormatParts } from "../core/format";
 import type { CommandResult } from "../office/runtime";
 import { iconSvg } from "./icons";
-import {
-  MAX_RECENT_COLORS,
-  SLIDE_SIZE_PRESETS,
-  sanitizeMatrix,
-  sanitizeSlideSizePreset,
-  toCommandOptions,
-  type SlideSizePreset,
-} from "./sanitize";
+import { ColorSection } from "./sections/colorSection";
+import { FormatSection } from "./sections/formatSection";
+import { SettingsSection } from "./sections/settingsSection";
+import type { SectionContext } from "./sections/types";
+import { toCommandOptions } from "./sanitize";
 import { loadPersistedOptions, saveOptions, type PersistedOptions } from "./settings";
-
-const SLIDE_SIZE_LABELS: Record<SlideSizePreset, string> = {
-  auto: "Auto",
-  "16x9": "16:9 (960×540)",
-  "16x9-legacy": "16:9 clásico (720×405)",
-  "4x3": "4:3 (720×540)",
-  a4: "A4 (780×540)",
-  letter: "Carta (720×540)",
-};
-
-const COLOR_TARGETS: ReadonlyArray<{ id: ColorTarget; icon: string; label: string }> = [
-  { id: "fill", icon: "targetFill", label: "Destino: relleno" },
-  { id: "line", icon: "targetLine", label: "Destino: línea" },
-  { id: "font", icon: "targetFont", label: "Destino: texto" },
-];
-
-const PASTE_PART_FIELDS: ReadonlyArray<{ key: keyof FormatParts; label: string }> = [
-  { key: "fill", label: "Relleno" },
-  { key: "line", label: "Línea" },
-  { key: "font", label: "Fuente" },
-  { key: "size", label: "Tamaño" },
-];
 
 /** La transparencia solo tiene sentido para relleno/línea; con destino "texto" no aplica. */
 const TRANSPARENCY_COMMAND_IDS: ReadonlySet<string> = new Set(["transparency-up", "transparency-down"]);
@@ -46,8 +19,6 @@ export class Panel {
   private persisted: PersistedOptions = loadPersistedOptions();
   private options: CommandOptions = toCommandOptions(this.persisted);
   private buttons = new Map<string, { el: HTMLButtonElement; cmd: Command }>();
-  private targetButtons = new Map<ColorTarget, HTMLButtonElement>();
-  private recentRowEl: HTMLElement | undefined;
   private noticeTimer: number | undefined;
   private lastCount: number | null = null;
   private busy = false;
@@ -59,7 +30,10 @@ export class Panel {
 
   render(): void {
     this.root.replaceChildren();
-    this.targetButtons.clear();
+    const ctx = this.sectionContext();
+    const formatSection = new FormatSection(ctx);
+    const colorSection = new ColorSection(ctx);
+    const settingsSection = new SettingsSection(ctx);
     SECTION_ORDER.forEach((section, i) => {
       if (i > 0) this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
       const sec = document.createElement("section");
@@ -72,17 +46,12 @@ export class Panel {
       row.className = "st-row";
       for (const cmd of commandsBySection(section)) row.appendChild(this.button(cmd));
       sec.appendChild(row);
-      if (section === "format") sec.appendChild(this.pastePartsRow());
-      if (section === "color") {
-        sec.appendChild(this.colorTargetRow());
-        sec.appendChild(this.paletteRow());
-        sec.appendChild(this.recentSection());
-        sec.appendChild(this.customColorField());
-      }
+      if (section === "format") sec.append(...formatSection.render());
+      if (section === "color") sec.append(...colorSection.render());
       this.root.appendChild(sec);
     });
     this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
-    this.root.appendChild(this.settingsSection());
+    this.root.appendChild(settingsSection.render());
     this.setSelectionCount(0);
   }
 
@@ -135,148 +104,6 @@ export class Panel {
     return el;
   }
 
-  /** Crea una muestra de color. El color ya pasó por `normalizeHex` antes de llegar aquí (paleta fija,
-   *  recientes saneados, o el valor normalizado que devuelve `applyColor`), así que nunca se vuelca
-   *  HTML arbitrario: solo se usa como valor de una custom property CSS. */
-  private swatch(color: string): HTMLButtonElement {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "st-swatch";
-    btn.setAttribute("aria-label", `Color ${color}`);
-    btn.title = color;
-    btn.style.setProperty("--swatch", color);
-    btn.addEventListener("click", () => void this.applyColor(color));
-    return btn;
-  }
-
-  private paletteRow(): HTMLElement {
-    const wrap = document.createElement("div");
-    const subtitle = document.createElement("div");
-    subtitle.className = "st-subtitle";
-    subtitle.textContent = "Paleta";
-    wrap.appendChild(subtitle);
-    const row = document.createElement("div");
-    row.className = "st-row";
-    for (const color of DEFAULT_PALETTE) row.appendChild(this.swatch(color));
-    wrap.appendChild(row);
-    return wrap;
-  }
-
-  private recentSection(): HTMLElement {
-    const wrap = document.createElement("div");
-    const subtitle = document.createElement("div");
-    subtitle.className = "st-subtitle";
-    subtitle.textContent = "Recientes";
-    wrap.appendChild(subtitle);
-    this.recentRowEl = document.createElement("div");
-    this.recentRowEl.className = "st-row";
-    this.renderRecentRow();
-    wrap.appendChild(this.recentRowEl);
-    return wrap;
-  }
-
-  private renderRecentRow(): void {
-    this.recentRowEl?.replaceChildren(...this.persisted.recentColors.map((c) => this.swatch(c)));
-  }
-
-  private colorTargetRow(): HTMLElement {
-    const wrap = document.createElement("div");
-    const subtitle = document.createElement("div");
-    subtitle.className = "st-subtitle";
-    subtitle.textContent = "Destino";
-    wrap.appendChild(subtitle);
-    const row = document.createElement("div");
-    row.className = "st-row";
-    row.setAttribute("role", "group");
-    row.setAttribute("aria-label", "Destino del color");
-    for (const t of COLOR_TARGETS) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "st-btn st-toggle";
-      btn.innerHTML = iconSvg(t.icon);
-      btn.setAttribute("aria-label", t.label);
-      btn.title = t.label;
-      const active = this.persisted.colorTarget === t.id;
-      btn.setAttribute("aria-pressed", String(active));
-      btn.classList.toggle("is-active", active);
-      btn.addEventListener("click", () => this.setColorTarget(t.id));
-      this.targetButtons.set(t.id, btn);
-      row.appendChild(btn);
-    }
-    wrap.appendChild(row);
-    return wrap;
-  }
-
-  private setColorTarget(target: ColorTarget): void {
-    this.updatePersisted({ colorTarget: target });
-    for (const [id, btn] of this.targetButtons) {
-      const active = id === target;
-      btn.setAttribute("aria-pressed", String(active));
-      btn.classList.toggle("is-active", active);
-    }
-    this.setSelectionCount(this.lastCount);
-  }
-
-  private customColorField(): HTMLElement {
-    const field = document.createElement("label");
-    field.className = "st-field";
-    field.append("Otro");
-    const input = document.createElement("input");
-    input.type = "color";
-    input.value = this.persisted.recentColors[0] ?? "#1F6FEB";
-    let debounce: number | undefined;
-    input.addEventListener("change", () => {
-      window.clearTimeout(debounce);
-      const value = input.value;
-      debounce = window.setTimeout(() => {
-        void this.applyColor(value).then((hex) => {
-          if (hex) input.value = hex;
-        });
-      }, 300);
-    });
-    field.appendChild(input);
-    return field;
-  }
-
-  /** Aplica el color y, si tuvo efecto, lo añade a recientes. Devuelve el hex normalizado si se aplicó. */
-  private async applyColor(color: string): Promise<string | undefined> {
-    const hex = normalizeHex(color);
-    if (!hex) return undefined;
-    const cmd = findCommand("set-color");
-    if (!cmd) return undefined;
-    const result = await this.run(cmd, { color: hex });
-    if (result?.ok && result.changed > 0) {
-      this.updatePersisted({ recentColors: pushRecent(this.persisted.recentColors, hex, MAX_RECENT_COLORS) });
-      const hadFocus = this.recentRowEl?.contains(document.activeElement);
-      this.renderRecentRow();
-      if (hadFocus) (this.recentRowEl?.firstElementChild as HTMLElement | null)?.focus();
-      return hex;
-    }
-    return undefined;
-  }
-
-  private pastePartsRow(): HTMLElement {
-    const row = document.createElement("div");
-    row.className = "st-row";
-    row.setAttribute("role", "group");
-    row.setAttribute("aria-label", "Partes a pegar");
-    for (const part of PASTE_PART_FIELDS) {
-      const label = document.createElement("label");
-      label.className = "st-check";
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = this.persisted.pasteParts[part.key];
-      input.addEventListener("change", () => {
-        const pasteParts = { ...this.persisted.pasteParts, [part.key]: input.checked };
-        this.updatePersisted({ pasteParts });
-        this.setSelectionCount(this.lastCount);
-      });
-      label.append(input, ` ${part.label}`);
-      row.appendChild(label);
-    }
-    return row;
-  }
-
   private async run(cmd: Command, extra?: Partial<CommandOptions>): Promise<CommandResult | undefined> {
     if (this.busy) return undefined;
     this.busy = true;
@@ -296,70 +123,17 @@ export class Panel {
     }
   }
 
-  /** Sección "Ajustes": tamaño de diapositiva forzado y parámetros de la matriz. */
-  private settingsSection(): HTMLElement {
-    const sec = document.createElement("section");
-    sec.className = "st-section";
-    const title = document.createElement("div");
-    title.className = "st-section-title";
-    title.textContent = "Ajustes";
-    sec.appendChild(title);
-    const row = document.createElement("div");
-    row.className = "st-row";
-    row.appendChild(this.slideSizeField());
-    sec.appendChild(row);
-    sec.appendChild(this.matrixFields());
-    return sec;
-  }
-
-  private slideSizeField(): HTMLElement {
-    const field = document.createElement("label");
-    field.className = "st-field";
-    field.append("Diapositiva");
-    const select = document.createElement("select");
-    select.className = "st-select";
-    for (const key of Object.keys(SLIDE_SIZE_PRESETS) as SlideSizePreset[]) {
-      const option = document.createElement("option");
-      option.value = key;
-      option.textContent = SLIDE_SIZE_LABELS[key];
-      select.appendChild(option);
-    }
-    select.value = this.persisted.slideSizePreset;
-    select.addEventListener("change", () => {
-      const slideSizePreset = sanitizeSlideSizePreset(select.value);
-      select.value = slideSizePreset;
-      this.updatePersisted({ slideSizePreset });
-    });
-    field.appendChild(select);
-    return field;
-  }
-
-  private matrixFields(): HTMLElement {
-    const wrap = document.createElement("div");
-    wrap.className = "st-row";
-    const make = (label: string, key: "columns" | "gapX" | "gapY", min: number, step?: string) => {
-      const field = document.createElement("label");
-      field.className = "st-field";
-      field.append(label);
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = String(min);
-      if (step) input.step = step;
-      input.value = String(this.persisted.matrix[key]);
-      input.addEventListener("change", () => {
-        const raw = Number(input.value);
-        const candidate = {
-          ...this.persisted.matrix,
-          [key]: Number.isFinite(raw) ? Math.max(min, raw) : this.persisted.matrix[key],
-        };
-        const matrix = sanitizeMatrix(candidate);
-        input.value = String(matrix[key]);
-        this.updatePersisted({ matrix });
-      });
-      field.appendChild(input);
-      return field;
+  /** Construye el contexto que ven las secciones: getters para que siempre lean el estado vigente. */
+  private sectionContext(): SectionContext {
+    const self = this;
+    return {
+      get persisted(): PersistedOptions {
+        return self.persisted;
+      },
+      updatePersisted: (patch) => self.updatePersisted(patch),
+      run: (cmd, extra) => self.run(cmd, extra),
+      refreshButtons: () => self.setSelectionCount(self.lastCount),
+      showNotice: (text, isError) => self.showNotice(text, isError),
     };
-    wrap.append(make("Cols", "columns", 1, "1"), make("Gap X", "gapX", 0), make("Gap Y", "gapY", 0));
-    return wrap;
   }
 }

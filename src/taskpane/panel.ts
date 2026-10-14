@@ -1,3 +1,4 @@
+import { getClipboard } from "../commands/clipboard";
 import { executeCommand } from "../commands/execute";
 import { SECTION_ORDER, commandsBySection, disabledReason, findCommand } from "../commands/registry";
 import { SECTION_LABELS, type Command, type CommandOptions } from "../commands/types";
@@ -37,6 +38,10 @@ const PASTE_PART_FIELDS: ReadonlyArray<{ key: keyof FormatParts; label: string }
   { key: "size", label: "Tamaño" },
 ];
 
+/** La transparencia solo tiene sentido para relleno/línea; con destino "texto" no aplica. */
+const TRANSPARENCY_COMMAND_IDS: ReadonlySet<string> = new Set(["transparency-up", "transparency-down"]);
+const TRANSPARENCY_FONT_REASON = "La transparencia no aplica al texto.";
+
 export class Panel {
   private persisted: PersistedOptions = loadPersistedOptions();
   private options: CommandOptions = toCommandOptions(this.persisted);
@@ -46,8 +51,6 @@ export class Panel {
   private noticeTimer: number | undefined;
   private lastCount: number | null = null;
   private busy = false;
-  /** Si hay un formato copiado en el portapapeles interno (habilita los botones de pegar). */
-  private hasClipboard = false;
 
   constructor(private root: HTMLElement, private notice: HTMLElement) {
     notice.setAttribute("role", "status");
@@ -93,13 +96,16 @@ export class Panel {
   setSelectionCount(count: number | null): void {
     this.lastCount = count;
     if (this.busy) return;
+    const hasClipboard = getClipboard() !== null;
+    const transparencyBlocked = this.persisted.colorTarget === "font";
     for (const { el, cmd } of this.buttons.values()) {
+      const overrideReason = transparencyBlocked && TRANSPARENCY_COMMAND_IDS.has(cmd.id) ? TRANSPARENCY_FONT_REASON : undefined;
       if (count === null) {
-        el.disabled = false;
-        el.title = cmd.label;
+        el.disabled = overrideReason !== undefined;
+        el.title = overrideReason ? `${cmd.label} — ${overrideReason}` : cmd.label;
         continue;
       }
-      const reason = disabledReason(cmd, count, this.hasClipboard);
+      const reason = disabledReason(cmd, count, hasClipboard) ?? overrideReason;
       el.disabled = reason !== undefined;
       el.title = reason ? `${cmd.label} — ${reason}` : cmd.label;
     }
@@ -197,6 +203,7 @@ export class Panel {
       btn.setAttribute("aria-pressed", String(active));
       btn.classList.toggle("is-active", active);
     }
+    this.setSelectionCount(this.lastCount);
   }
 
   private customColorField(): HTMLElement {
@@ -255,7 +262,6 @@ export class Panel {
       if (!result.ok) this.showNotice(result.message, true);
       else if (result.message) this.showNotice(result.message);
       else if (result.changed === 0) this.showNotice("Nada que cambiar.");
-      if (result.ok && cmd.kind === "copy-format") this.hasClipboard = true;
       return result;
     } finally {
       this.busy = false;

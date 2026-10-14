@@ -13,13 +13,21 @@ const PLACEHOLDER_TEXT = "Texto";
 const DEFAULT_STICKER_TEXT = "BORRADOR";
 /** Color del texto sobre el relleno de acento (chevrones, círculos numerados). */
 const ON_ACCENT_TEXT = "#FFFFFF";
+/** Estilo común de las etiquetas sobre acento (chevrones, círculos numerados): sin contorno, texto
+ *  blanco en negrita y centrado. Cada comando añade `fill`, `text` y `fontSize`. */
+const ACCENT_LABEL = { line: null, fontColor: ON_ACCENT_TEXT, bold: true, centered: true } as const;
 
 /** Lo que recibe `build`: la diapositiva activa, su tamaño y el color de acento (solo resuelto
- *  contra el tema si el comando lo pidió con `withAccent`; si no, `DEFAULT_ACCENT`). */
+ *  contra el tema si el comando lo pidió con `{ accent: true }`; si no, `DEFAULT_ACCENT`). */
 interface InsertTarget {
   slide: PowerPoint.Slide;
   size: SlideSize;
   accent: string;
+}
+
+/** Opciones de `insertShapes`: `accent` pide resolver el color de acento del tema. */
+interface InsertOptions {
+  accent?: boolean;
 }
 
 /**
@@ -28,13 +36,13 @@ interface InsertTarget {
  * selecciona (`selectCreated`) en un segundo sync y devuelve `{ changed, message }`.
  *
  * Syncs: 1 (`readSlideNav`) + 0..1 (`getSlideSize`, 0 con `options.slideSize` forzado) + 0..1
- * (`resolveAccent`, solo si `withAccent` y con PowerPointApi 1.10) + 2 de escritura. Los dos syncs
+ * (`resolveAccent`, solo con `{ accent: true }` y PowerPointApi 1.10) + 2 de escritura. Los dos syncs
  * de escritura son inevitables: `setSelectedShapes` necesita los ids reales, que Office.js solo
  * asigna al sincronizar la creación.
  */
 async function insertShapes(
   { context, options, slideSizeCache }: ActionContext,
-  withAccent: boolean,
+  { accent: withAccent = false }: InsertOptions,
   build: (target: InsertTarget) => PowerPoint.Shape[],
   message: (n: number) => string,
 ): Promise<CommandOutcome> {
@@ -62,7 +70,7 @@ const insertColumns: ActionCommand = {
   run: (ctx) =>
     insertShapes(
       ctx,
-      false,
+      {},
       ({ slide, size }) => {
         const rects = columnsLayout(size, ctx.options.insert.count);
         return addTextBoxes(slide, rects, rects.map(() => PLACEHOLDER_TEXT));
@@ -79,7 +87,7 @@ const insertGrid: ActionCommand = {
   run: (ctx) =>
     insertShapes(
       ctx,
-      false,
+      {},
       ({ slide, size }) => {
         const rects = gridLayout(size, 2, 2);
         return addTextBoxes(slide, rects, rects.map(() => PLACEHOLDER_TEXT));
@@ -96,18 +104,10 @@ const insertChevrons: ActionCommand = {
   run: (ctx) =>
     insertShapes(
       ctx,
-      true,
+      { accent: true },
       ({ slide, size, accent }) =>
         chevronChainLayout(size, ctx.options.insert.count).map((rect, i) =>
-          addGeometric(slide, "Chevron", rect, {
-            fill: accent,
-            line: null,
-            text: `Paso ${i + 1}`,
-            fontColor: ON_ACCENT_TEXT,
-            bold: true,
-            fontSize: 12,
-            centered: true,
-          }),
+          addGeometric(slide, "Chevron", rect, { ...ACCENT_LABEL, fill: accent, text: `Paso ${i + 1}`, fontSize: 12 }),
         ),
       (n) => `${n} chevrón(es) insertado(s).`,
     ),
@@ -121,18 +121,10 @@ const insertCircles: ActionCommand = {
   run: (ctx) =>
     insertShapes(
       ctx,
-      true,
+      { accent: true },
       ({ slide, size, accent }) =>
         numberedCirclesLayout(size, ctx.options.insert.count).map((rect, i) =>
-          addGeometric(slide, "Ellipse", rect, {
-            fill: accent,
-            line: null,
-            text: String(i + 1),
-            fontColor: ON_ACCENT_TEXT,
-            bold: true,
-            fontSize: 14,
-            centered: true,
-          }),
+          addGeometric(slide, "Ellipse", rect, { ...ACCENT_LABEL, fill: accent, text: String(i + 1), fontSize: 14 }),
         ),
       (n) => `${n} círculo(s) numerado(s) insertado(s).`,
     ),
@@ -146,7 +138,7 @@ const insertSticker: ActionCommand = {
   run: (ctx) =>
     insertShapes(
       ctx,
-      false,
+      {},
       ({ slide, size }) => [
         addGeometric(slide, "RoundRectangle", stickerRect(size), {
           fill: ctx.options.insert.stickerColor,
@@ -169,7 +161,7 @@ function lineCommand(id: string, label: string, icon: string, kind: LineType, me
     id,
     label,
     icon,
-    run: (ctx) => insertShapes(ctx, false, ({ slide, size }) => [addLine(slide, kind, BASIC_SHAPE_RECT(size))], () => message),
+    run: (ctx) => insertShapes(ctx, {}, ({ slide, size }) => [addLine(slide, kind, BASIC_SHAPE_RECT(size))], () => message),
   };
 }
 
@@ -180,7 +172,7 @@ function shapeCommand(id: string, label: string, icon: string, type: GeometricSh
     id,
     label,
     icon,
-    run: (ctx) => insertShapes(ctx, false, ({ slide, size }) => [addGeometric(slide, type, BASIC_SHAPE_RECT(size))], () => "Forma insertada."),
+    run: (ctx) => insertShapes(ctx, {}, ({ slide, size }) => [addGeometric(slide, type, BASIC_SHAPE_RECT(size))], () => "Forma insertada."),
   };
 }
 
@@ -192,7 +184,7 @@ const insertTextbox: ActionCommand = {
   run: (ctx) =>
     insertShapes(
       ctx,
-      false,
+      {},
       ({ slide, size }) => addTextBoxes(slide, [BASIC_SHAPE_RECT(size)], [PLACEHOLDER_TEXT]),
       () => "Cuadro de texto insertado.",
     ),

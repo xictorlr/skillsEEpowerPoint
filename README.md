@@ -124,7 +124,8 @@ moverlos o darles formato con el resto del panel:
   **cuadro de texto:** una forma centrada en la diapositiva con el estilo por defecto del tema.
 
 Los campos **N** (de 1 a 12; un valor mayor se acota a 12), **Sticker** (texto, hasta 30 caracteres)
-y **Color** de la sección se recuerdan entre sesiones. Cada inserción es un único paso de deshacer.
+y **Color** de la sección se recuerdan entre sesiones. Las formas se crean en un lote y se seleccionan
+en un segundo paso, así que Deshacer (Cmd+Z / Ctrl+Z) normalmente quita toda la inserción de una vez.
 
 **Text (estilos rápidos):** negrita, cursiva, subrayado y tachado como conmutadores: si todas las
 formas seleccionadas con valor conocido ya tienen el estilo, se quita; si no, se aplica a todas.
@@ -245,7 +246,8 @@ Tras instalar el add-in, en una presentación de prueba:
    del tema; cierra y vuelve a abrir el panel y comprueba que el título y las secciones siguen ahí.
 
 10. **Insert/Text (Fase 8):** en Insert pon N = 4 y pulsa "Insertar cadena de chevrones": deben
-    aparecer 4 chevrones "Paso 1".."Paso 4" en fila, ya seleccionados (Cmd+Z los quita de una vez).
+    aparecer 4 chevrones "Paso 1".."Paso 4" en fila, ya seleccionados; comprueba que Cmd+Z / Ctrl+Z
+    quita todos los elementos insertados.
     Escribe un texto propio en "Sticker", elige un color y pulsa "Insertar sticker": la etiqueta
     aparece en la esquina superior derecha con ese texto y color. "Insertar cuadro de texto" crea
     un cuadro "Texto" centrado y seleccionado. En Text, selecciona dos cuadros, uno en negrita y

@@ -330,6 +330,19 @@ describe("Insert section", () => {
     expect(persistedInsert()).toEqual({ count: 3, stickerText: "Final", stickerColor: "#FF0000" });
   });
 
+  it("clearing the N field keeps the previously persisted count and restores it in the input", () => {
+    localStorage.setItem(KEY, JSON.stringify({ insert: { count: 5, stickerText: "BORRADOR", stickerColor: "#FFE066" } }));
+    const { root } = createPanel();
+    const count = insertSection(root).querySelector<HTMLInputElement>('input[type="number"]')!;
+    expect(count.getAttribute("aria-label")).toBe("Cantidad (N) de columnas, chevrones o círculos");
+
+    count.value = "";
+    count.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(count.value).toBe("5");
+    expect(persistedInsert().count).toBe(5);
+  });
+
   it("loads persisted insert settings into the fields", () => {
     localStorage.setItem(KEY, JSON.stringify({ insert: { count: 7, stickerText: "WIP", stickerColor: "#00ff00" } }));
     const { root } = createPanel();

@@ -18,7 +18,7 @@ import {
 import type { Command, TextCompute } from "./types";
 
 /** `extra` permite añadir campos opcionales de `BaseCommand` (p. ej. `requiresApi` en la sangría). */
-const t = (id: string, label: string, icon: string, compute: TextCompute, extra: { requiresApi?: string } = {}): Command => ({
+const t = (id: string, label: string, icon: string, compute: TextCompute, extra: Partial<Pick<Command, "requiresApi">> = {}): Command => ({
   kind: "text",
   id,
   section: "text",
@@ -30,7 +30,7 @@ const t = (id: string, label: string, icon: string, compute: TextCompute, extra:
 });
 
 /** La sangría (`paragraphFormat.indentLevel`) solo se puede leer/escribir con PowerPointApi 1.10. */
-const INDENT_API = { requiresApi: "1.10" };
+const INDENT_API: Partial<Pick<Command, "requiresApi">> = { requiresApi: "1.10" };
 
 export const textCommands: readonly Command[] = [
   t("case-upper", "MAYÚSCULAS", "caseUpper", (s) => casePatches(s, "upper")),

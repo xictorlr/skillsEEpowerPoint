@@ -270,6 +270,16 @@ describe("insert commands", () => {
     expect(ctx.syncCount).toBe(SYNCS_BASE);
   });
 
+  it("with an empty deck (no slides) fails cleanly without creating anything", async () => {
+    const ctx = new MockContext([], "", { slides: [] });
+    stubPowerPoint(ctx);
+    const result = await executeCommand(findCommand("insert-chevrons")!, DEFAULT_OPTIONS);
+
+    expect(result).toEqual({ ok: false, message: "No hay diapositivas." });
+    expect(ctx.calls.filter((c) => ["addTextBox", "addGeometricShape", "addLine"].includes(c.path))).toEqual([]);
+    expect(ctx.selectedShapeIds).toBeUndefined();
+  });
+
   it("inserts on the active slide, not the first one, when another slide is selected", async () => {
     const ctx = new MockContext([], "", { slides: [{ id: "sl1" }, { id: "sl2" }, { id: "sl3" }], activeSlideIndex: 2 });
     stubPowerPoint(ctx);

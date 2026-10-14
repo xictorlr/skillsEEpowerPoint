@@ -36,6 +36,7 @@ export class InsertSection {
     input.step = "1";
     input.value = String(this.ctx.persisted.insert.count);
     input.title = "Cantidad de columnas, chevrones o círculos (1..12)";
+    input.setAttribute("aria-label", "Cantidad (N) de columnas, chevrones o círculos");
     input.addEventListener("change", () => this.persist());
     this.countInput = input;
     field.appendChild(input);
@@ -74,11 +75,13 @@ export class InsertSection {
   }
 
   /** Sanea los tres campos juntos (para que lo persistido sea siempre una `InsertSettings` válida)
-   *  y refleja los valores saneados de vuelta en los controles. `valueAsNumber` da `NaN` con un
-   *  campo vacío: `sanitizeInsert` lo convierte en el valor por defecto (3). */
+   *  y refleja los valores saneados de vuelta en los controles. Un campo "N" vacío o no numérico
+   *  (`valueAsNumber` da `NaN`) conserva la cantidad ya persistida en vez de volver al valor por
+   *  defecto. */
   private sanitize(): InsertSettings {
+    const rawCount = this.countInput?.valueAsNumber;
     const insert = sanitizeInsert({
-      count: this.countInput?.valueAsNumber,
+      count: rawCount !== undefined && Number.isFinite(rawCount) ? rawCount : this.ctx.persisted.insert.count,
       stickerText: this.textInput?.value,
       stickerColor: this.colorInput?.value,
     });

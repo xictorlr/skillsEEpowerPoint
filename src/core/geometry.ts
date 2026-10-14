@@ -1,3 +1,7 @@
+/**
+ * Todas las funciones usan el marco sin rotar (left/top/width/height) tal como lo expone Office.js;
+ * la rotación no se tiene en cuenta.
+ */
 import type { Patch, Rect, ShapeModel, SlideSize } from "./types";
 
 export type AlignEdge = "left" | "centerH" | "right" | "top" | "centerV" | "bottom";
@@ -51,38 +55,54 @@ export function alignToSlide(shapes: ShapeModel[], slide: SlideSize, edge: Align
 
 export type Axis = "h" | "v";
 
-/** Reparte el espacio entre formas de modo uniforme. Las dos extremas (por posición) no se mueven. */
+/**
+ * Reparte el espacio entre formas de modo uniforme. La forma con el borde inicial mínimo y la forma
+ * con el borde final máximo (sobre toda la selección) permanecen fijas; el resto se ordena por su
+ * centro y se reparte con huecos iguales entre esas dos. Si una sola forma cubre a todas las demás
+ * (es la misma por ambos extremos), no hay nada que repartir.
+ */
 export function distribute(shapes: ShapeModel[], axis: Axis): Patch[] {
   if (shapes.length < 3) return [];
   const pos = axis === "h" ? "left" : "top";
   const size = axis === "h" ? "width" : "height";
-  const sorted = [...shapes].sort((a, b) => a[pos] + a[size] / 2 - (b[pos] + b[size] / 2));
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
-  if (!first || !last) return [];
-  const span = last[pos] + last[size] - first[pos];
-  const total = sorted.reduce((acc, s) => acc + s[size], 0);
-  const gap = (span - total) / (sorted.length - 1);
+  const leftmost = shapes.reduce((m, s) => (s[pos] < m[pos] ? s : m));
+  const rightmost = shapes.reduce((m, s) => (s[pos] + s[size] > m[pos] + m[size] ? s : m));
+  if (leftmost.id === rightmost.id) return [];
+  const span = rightmost[pos] + rightmost[size] - leftmost[pos];
+  const total = shapes.reduce((acc, s) => acc + s[size], 0);
+  const gap = (span - total) / (shapes.length - 1);
+  const middle = shapes
+    .filter((s) => s.id !== leftmost.id && s.id !== rightmost.id)
+    .sort((a, b) => a[pos] + a[size] / 2 - (b[pos] + b[size] / 2));
   const patches: Patch[] = [];
-  let cursor = first[pos] + first[size] + gap;
-  for (const s of sorted.slice(1, -1)) {
-    if (!near(cursor, s[pos])) patches.push({ id: s.id, [pos]: cursor } as Patch);
+  let cursor = leftmost[pos] + leftmost[size] + gap;
+  for (const s of middle) {
+    if (!near(cursor, s[pos])) patches.push(axis === "h" ? { id: s.id, left: cursor } : { id: s.id, top: cursor });
     cursor += s[size] + gap;
   }
   return patches;
 }
 
-/** Intercambia los centros de dos formas. */
+function swapPatch(shape: ShapeModel, newLeft: number, newTop: number): Patch | undefined {
+  const patch: Patch = { id: shape.id };
+  if (!near(newLeft, shape.left)) patch.left = newLeft;
+  if (!near(newTop, shape.top)) patch.top = newTop;
+  return patch.left !== undefined || patch.top !== undefined ? patch : undefined;
+}
+
+/** Intercambia los centros de dos formas. Solo se incluyen los campos (left/top) que realmente cambian. */
 export function swapPositions(shapes: ShapeModel[]): Patch[] {
   if (shapes.length !== 2) return [];
   const [a, b] = shapes;
   if (!a || !b) return [];
   const ca = { x: a.left + a.width / 2, y: a.top + a.height / 2 };
   const cb = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
-  return [
-    { id: a.id, left: cb.x - a.width / 2, top: cb.y - a.height / 2 },
-    { id: b.id, left: ca.x - b.width / 2, top: ca.y - b.height / 2 },
-  ];
+  const patches: Patch[] = [];
+  const aPatch = swapPatch(a, cb.x - a.width / 2, cb.y - a.height / 2);
+  if (aPatch) patches.push(aPatch);
+  const bPatch = swapPatch(b, ca.x - b.width / 2, ca.y - b.height / 2);
+  if (bPatch) patches.push(bPatch);
+  return patches;
 }
 
 export type SizeDim = "width" | "height" | "both";
@@ -111,7 +131,10 @@ export function matchSize(shapes: ShapeModel[], dim: SizeDim, mode: SizeMode): P
   return patches;
 }
 
-/** Estira el borde indicado de cada forma hasta el mismo borde de la referencia; el borde opuesto no se mueve. */
+/**
+ * Estira el borde indicado de cada forma hasta el mismo borde de la referencia; el borde opuesto no se mueve.
+ * El borde movido se ajusta exactamente al borde de referencia, por lo que la forma también puede encogerse.
+ */
 export function stretchToEdge(shapes: ShapeModel[], edge: Edge): Patch[] {
   if (shapes.length < 2) return [];
   const [ref, ...rest] = shapes;
@@ -145,13 +168,49 @@ export interface MatrixOptions {
   gapY: number;
 }
 
+/** Tolerancia (en puntos) para considerar que dos formas están en la misma fila pese a pequeñas
+ *  diferencias de `top` (p. ej. redondeo). */
+const ROW_TOLERANCE_PT = 2;
+
 /**
- * Coloca las formas en una rejilla de `columns` columnas, en orden de lectura (top, luego left),
- * partiendo de la esquina superior izquierda de la selección. Cada celda mide el máximo ancho/alto.
+ * Calcula el orden de lectura de una selección: agrupa las formas en filas (dentro de
+ * `ROW_TOLERANCE_PT` del `top` de la primera forma de la fila) y, dentro de cada fila, ordena por `left`.
+ */
+function readingOrder(shapes: ShapeModel[]): ShapeModel[] {
+  const byTop = [...shapes].sort((a, b) => a.top - b.top);
+  const rows: ShapeModel[][] = [];
+  let currentRow: ShapeModel[] = [];
+  let rowTop = 0;
+  for (const s of byTop) {
+    if (currentRow.length === 0) {
+      rowTop = s.top;
+    } else if (s.top - rowTop > ROW_TOLERANCE_PT) {
+      rows.push(currentRow);
+      currentRow = [];
+      rowTop = s.top;
+    }
+    currentRow.push(s);
+  }
+  if (currentRow.length > 0) rows.push(currentRow);
+  return rows.flatMap((row) => [...row].sort((a, b) => a.left - b.left));
+}
+
+/**
+ * Coloca las formas en una rejilla de `columns` columnas, en orden de lectura (filas por `top` con
+ * tolerancia, luego `left` dentro de cada fila), partiendo de la esquina superior izquierda de la
+ * selección. Cada celda mide el máximo ancho/alto.
  */
 export function arrangeMatrix(shapes: ShapeModel[], opts: MatrixOptions): Patch[] {
-  if (shapes.length < 2 || !Number.isInteger(opts.columns) || opts.columns < 1) return [];
-  const ordered = [...shapes].sort((a, b) => a.top - b.top || a.left - b.left);
+  if (
+    shapes.length < 2 ||
+    !Number.isInteger(opts.columns) ||
+    opts.columns < 1 ||
+    !Number.isFinite(opts.gapX) ||
+    !Number.isFinite(opts.gapY)
+  ) {
+    return [];
+  }
+  const ordered = readingOrder(shapes);
   const originX = Math.min(...shapes.map((s) => s.left));
   const originY = Math.min(...shapes.map((s) => s.top));
   const cellW = Math.max(...shapes.map((s) => s.width));

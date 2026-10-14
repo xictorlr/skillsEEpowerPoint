@@ -59,4 +59,18 @@ describe("stretchToEdge", () => {
     const outside = shape({ id: "o", left: 600, top: 0, width: 50, height: 30 }); // left beyond ref.right
     expect(stretchToEdge([ref, outside], "right")).toEqual([]);
   });
+
+  it("returns [] for left/top when the result would have non-positive size", () => {
+    // right edge (-30) is already to the left of ref.left (100) → width would be <= 0
+    const leftOfRef = shape({ id: "lo", left: -50, top: 150, width: 20, height: 30 });
+    expect(stretchToEdge([ref, leftOfRef], "left")).toEqual([]);
+    // bottom edge (-30) is already above ref.top (100) → height would be <= 0
+    const aboveRef = shape({ id: "ao", left: 200, top: -50, width: 20, height: 20 });
+    expect(stretchToEdge([ref, aboveRef], "top")).toEqual([]);
+  });
+
+  it("returns [] for top when the shape is already flush with the reference's top edge", () => {
+    const flush = shape({ id: "flush", left: 250, top: 100, width: 60, height: 80 });
+    expect(stretchToEdge([ref, flush], "top")).toEqual([]);
+  });
 });

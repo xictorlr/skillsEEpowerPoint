@@ -42,6 +42,16 @@ describe("alignShapes", () => {
     const same = shape({ id: "same", left: 100, top: 0, width: 10, height: 10 });
     expect(alignShapes([ref, same], "left")).toEqual([]);
   });
+
+  it("returns [] when the shape is identical to the reference, for every edge", () => {
+    const twin = shape({ id: "twin", left: 100, top: 100, width: 200, height: 100 });
+    expect(alignShapes([ref, twin], "left")).toEqual([]);
+    expect(alignShapes([ref, twin], "centerH")).toEqual([]);
+    expect(alignShapes([ref, twin], "right")).toEqual([]);
+    expect(alignShapes([ref, twin], "top")).toEqual([]);
+    expect(alignShapes([ref, twin], "centerV")).toEqual([]);
+    expect(alignShapes([ref, twin], "bottom")).toEqual([]);
+  });
 });
 
 describe("alignToSlide", () => {

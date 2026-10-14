@@ -30,6 +30,15 @@ describe("distribute", () => {
     expect(result[1]?.id).toBe("c");
     expect(result[1]?.top).toBeCloseTo(326.667, 2);
   });
+
+  it("keeps the shape with min-left and the shape with max-right fixed, even when they are not the extremes by center", () => {
+    const a = shape({ id: "a", left: 0, top: 0, width: 10, height: 10 }); // right 10, center 5 (min-left)
+    const big = shape({ id: "big", left: 5, top: 0, width: 500, height: 10 }); // right 505, center 255 (max-right)
+    const c = shape({ id: "c", left: 200, top: 0, width: 10, height: 10 }); // right 210, center 205
+    // span = 505 - 0 = 505; total widths = 10 + 500 + 10 = 520; gap = (505 - 520) / 2 = -7.5
+    // order by center: a(5), c(205), big(255) → c.left = 0 + 10 + (-7.5) = 2.5
+    expect(distribute([big, a, c], "h")).toEqual([{ id: "c", left: 2.5 }]);
+  });
 });
 
 describe("swapPositions", () => {
@@ -46,5 +55,11 @@ describe("swapPositions", () => {
     const a = shape({ left: 0, top: 0, width: 1, height: 1 });
     expect(swapPositions([a])).toEqual([]);
     expect(swapPositions([a, a, a])).toEqual([]);
+  });
+
+  it("returns [] when swapping two identical shapes (nothing actually changes)", () => {
+    const a = shape({ id: "a", left: 10, top: 10, width: 30, height: 20 });
+    const b = shape({ id: "b", left: 10, top: 10, width: 30, height: 20 });
+    expect(swapPositions([a, b])).toEqual([]);
   });
 });

@@ -2,11 +2,27 @@ import { executeCommand } from "../commands/execute";
 import { SECTION_ORDER, commandsBySection, disabledReason } from "../commands/registry";
 import { SECTION_LABELS, type Command, type CommandOptions } from "../commands/types";
 import { iconSvg } from "./icons";
-import { sanitizeMatrix } from "./sanitize";
-import { loadOptions, saveOptions } from "./settings";
+import {
+  SLIDE_SIZE_PRESETS,
+  sanitizeMatrix,
+  sanitizeSlideSizePreset,
+  toCommandOptions,
+  type SlideSizePreset,
+} from "./sanitize";
+import { loadPersistedOptions, saveOptions, type PersistedOptions } from "./settings";
+
+const SLIDE_SIZE_LABELS: Record<SlideSizePreset, string> = {
+  auto: "Auto",
+  "16x9": "16:9 (960×540)",
+  "16x9-legacy": "16:9 clásico (720×405)",
+  "4x3": "4:3 (720×540)",
+  a4: "A4 (780×540)",
+  letter: "Carta (720×540)",
+};
 
 export class Panel {
-  private options: CommandOptions = loadOptions();
+  private persisted: PersistedOptions = loadPersistedOptions();
+  private options: CommandOptions = toCommandOptions(this.persisted);
   private buttons = new Map<string, { el: HTMLButtonElement; cmd: Command }>();
   private noticeTimer: number | undefined;
   private lastCount: number | null = null;
@@ -31,9 +47,10 @@ export class Panel {
       row.className = "st-row";
       for (const cmd of commandsBySection(section)) row.appendChild(this.button(cmd));
       sec.appendChild(row);
-      if (section === "alignment") sec.appendChild(this.matrixFields());
       this.root.appendChild(sec);
     });
+    this.root.appendChild(Object.assign(document.createElement("hr"), { className: "st-divider" }));
+    this.root.appendChild(this.settingsSection());
     this.setSelectionCount(0);
   }
 
@@ -94,6 +111,46 @@ export class Panel {
     }
   }
 
+  /** Sección "Ajustes": tamaño de diapositiva forzado y parámetros de la matriz. */
+  private settingsSection(): HTMLElement {
+    const sec = document.createElement("section");
+    sec.className = "st-section";
+    const title = document.createElement("div");
+    title.className = "st-section-title";
+    title.textContent = "Ajustes";
+    sec.appendChild(title);
+    const row = document.createElement("div");
+    row.className = "st-row";
+    row.appendChild(this.slideSizeField());
+    sec.appendChild(row);
+    sec.appendChild(this.matrixFields());
+    return sec;
+  }
+
+  private slideSizeField(): HTMLElement {
+    const field = document.createElement("label");
+    field.className = "st-field";
+    field.append("Diapositiva");
+    const select = document.createElement("select");
+    select.className = "st-select";
+    for (const key of Object.keys(SLIDE_SIZE_PRESETS) as SlideSizePreset[]) {
+      const option = document.createElement("option");
+      option.value = key;
+      option.textContent = SLIDE_SIZE_LABELS[key];
+      select.appendChild(option);
+    }
+    select.value = this.persisted.slideSizePreset;
+    select.addEventListener("change", () => {
+      const slideSizePreset = sanitizeSlideSizePreset(select.value);
+      select.value = slideSizePreset;
+      this.persisted = { ...this.persisted, slideSizePreset };
+      this.options = toCommandOptions(this.persisted);
+      saveOptions(this.persisted);
+    });
+    field.appendChild(select);
+    return field;
+  }
+
   private matrixFields(): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "st-row";
@@ -105,13 +162,14 @@ export class Panel {
       input.type = "number";
       input.min = String(min);
       if (step) input.step = step;
-      input.value = String(this.options.matrix[key]);
+      input.value = String(this.persisted.matrix[key]);
       input.addEventListener("change", () => {
-        const candidate = { ...this.options.matrix, [key]: Number(input.value) };
+        const candidate = { ...this.persisted.matrix, [key]: Number(input.value) };
         const matrix = sanitizeMatrix(candidate);
         input.value = String(matrix[key]);
-        this.options = { ...this.options, matrix };
-        saveOptions(this.options);
+        this.persisted = { ...this.persisted, matrix };
+        this.options = toCommandOptions(this.persisted);
+        saveOptions(this.persisted);
       });
       field.appendChild(input);
       return field;

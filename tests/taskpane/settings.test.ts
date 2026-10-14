@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeMatrix } from "../../src/taskpane/sanitize";
+import {
+  DEFAULT_MATRIX,
+  SLIDE_SIZE_PRESETS,
+  sanitizeMatrix,
+  sanitizeSlideSizePreset,
+  toCommandOptions,
+} from "../../src/taskpane/sanitize";
 
 describe("sanitizeMatrix", () => {
   it("falls back to defaults for undefined", () => {
@@ -40,5 +46,39 @@ describe("sanitizeMatrix", () => {
 
   it("sanitizes each field independently when only some are present", () => {
     expect(sanitizeMatrix({ columns: 5 })).toEqual({ columns: 5, gapX: 8, gapY: 8 });
+  });
+});
+
+describe("sanitizeSlideSizePreset", () => {
+  it("returns 'auto' for garbage input", () => {
+    expect(sanitizeSlideSizePreset(undefined)).toBe("auto");
+    expect(sanitizeSlideSizePreset(null)).toBe("auto");
+    expect(sanitizeSlideSizePreset(42)).toBe("auto");
+    expect(sanitizeSlideSizePreset({})).toBe("auto");
+    expect(sanitizeSlideSizePreset("not-a-real-preset")).toBe("auto");
+  });
+
+  it("returns the key unchanged for every valid preset", () => {
+    for (const key of Object.keys(SLIDE_SIZE_PRESETS)) {
+      expect(sanitizeSlideSizePreset(key)).toBe(key);
+    }
+  });
+});
+
+describe("toCommandOptions", () => {
+  it("resolves a forced preset to its slide size", () => {
+    expect(toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "16x9-legacy" }).slideSize).toEqual({
+      width: 720,
+      height: 405,
+    });
+  });
+
+  it("leaves slideSize undefined for 'auto'", () => {
+    expect(toCommandOptions({ matrix: DEFAULT_MATRIX, slideSizePreset: "auto" }).slideSize).toBeUndefined();
+  });
+
+  it("passes the matrix through unchanged", () => {
+    const matrix = { columns: 4, gapX: 10, gapY: 12 };
+    expect(toCommandOptions({ matrix, slideSizePreset: "auto" }).matrix).toEqual(matrix);
   });
 });

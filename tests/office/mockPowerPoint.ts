@@ -39,7 +39,7 @@ export interface MockShapeInit {
   /** `false` simula una forma que Office.js rechaza al tocar `fill`/`lineFormat` (ver `MockContext`). */
   supportsFormat?: boolean;
   /** Propiedades de `textFrame`/`textRange`/`paragraphFormat` para formas con marco de texto. */
-  textProps?: {
+  textProps?: Partial<{
     text: string;
     horizontalAlignment: string | null;
     verticalAlignment: string;
@@ -49,7 +49,9 @@ export interface MockShapeInit {
     rightMargin: number;
     topMargin: number;
     bottomMargin: number;
-  };
+    /** Valor de `textFrame.hasText` (API 1.4). Por defecto `true`. */
+    hasText: boolean;
+  }>;
 }
 
 export interface MockFill {
@@ -316,6 +318,11 @@ export class MockShape {
           enumerable: true,
         });
       }
+      // `hasText` (API 1.4) es de solo lectura: no se escribe desde el código bajo prueba.
+      Object.defineProperty(textFrame, "hasText", {
+        get: () => textInit.hasText ?? true,
+        enumerable: true,
+      });
       Object.defineProperty(this, "textFrame", {
         get: () => textFrame,
         enumerable: true,
@@ -337,6 +344,11 @@ export class MockShape {
   /** `shape.setZOrder(op)`: registra `{ path: "setZOrder", value: op }` en `formatWrites`. */
   setZOrder(op: string): void {
     this.recordFormatWrite("setZOrder", op);
+  }
+
+  /** `shape.delete()`: registra `{ path: "delete", value: null }` en `formatWrites`. */
+  delete(): void {
+    this.recordFormatWrite("delete", null);
   }
 
   /**
@@ -380,12 +392,27 @@ export class MockSlide {
       load: (_props: string) => {
         /* no-op: los valores ya están disponibles en el mock */
       },
+      /** `shapes.addTextBox(text, opts)`: crea un `MockShape` de tipo "TextBox", lo añade a la
+       *  diapositiva y registra `{ id, path: "addTextBox", value: { text, ...opts } }` en `ctx.calls`. */
+      addTextBox: (text: string, opts: { left: number; top: number; width: number; height: number }): MockShape => {
+        this.ctx.addedShapes += 1;
+        const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type: "TextBox", ...opts });
+        shape.ctx = this.ctx;
+        this.shapesList.push(shape);
+        this.ctx.calls.push({ id: shape.id, path: "addTextBox", value: { text, ...opts } });
+        return shape;
+      },
     };
   }
 
   /** `slide.setSelectedShapes(ids)`: registra `ids` en `ctx.selectedShapeIds`. */
   setSelectedShapes(ids: string[]): void {
     this.ctx.selectedShapeIds = ids;
+  }
+
+  /** `slide.moveTo(index)`: registra `{ id: slide.id, path: "moveTo", value: index }` en `ctx.calls`. */
+  moveTo(index: number): void {
+    this.ctx.calls.push({ id: this.id, path: "moveTo", value: index });
   }
 
   getImageAsBase64(options: Record<string, unknown>): { value: string } {
@@ -433,6 +460,10 @@ export class MockContext {
   calls: Array<{ id: string; path: string; value: unknown }> = [];
   readonly slidesList: MockSlide[];
   activeSlideIndex: number;
+  /** Diapositivas añadidas vía `slides.add()`, usado para generar ids únicos. */
+  addedSlides = 0;
+  /** Formas añadidas vía `shapes.addTextBox()`, usado para generar ids únicos. */
+  addedShapes = 0;
 
   constructor(public shapes: MockShape[], public slidePng = "", public opts: MockContextOptions = {}) {
     for (const s of shapes) s.ctx = this;
@@ -479,7 +510,19 @@ export class MockContext {
           if (!found) throw { code: "ItemNotFound", message: `No se encontró la diapositiva "${id}".` };
           return found;
         },
+        getItemAt: (index: number) => {
+          const found = this.slidesList[index];
+          if (!found) throw { code: "ItemNotFound", message: `No se encontró la diapositiva en el índice ${index}.` };
+          return found;
+        },
         getCount: () => ({ value: this.slidesList.length }),
+        /** `slides.add()`: crea un `MockSlide` nuevo al final (sin formas) y no devuelve nada,
+         *  igual que en Office.js real (ver `addSlideAfter` en `deck.ts`). */
+        add: () => {
+          this.addedSlides += 1;
+          this.slidesList.push(new MockSlide(this, `new-slide-${this.addedSlides}`, this.slidesList.length, []));
+        },
+        exportAsBase64Presentation: (ids: string[]) => ({ value: `BASE64:${ids.join(",")}` }),
       },
       pageSetup: {
         slideWidth: this.opts.pageSetup?.slideWidth ?? 0,

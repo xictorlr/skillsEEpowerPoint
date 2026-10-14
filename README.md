@@ -3,9 +3,11 @@
 Panel lateral para PowerPoint (Mac y Windows) con herramientas de alineación, tamaño, formato y texto,
 inspirado en el flujo de trabajo de los paneles de productividad para presentaciones.
 
-Autor: Victor Lopez · Add-in web (Office.js) · Hospedado en GitHub Pages.
+Autor: Victor Lopez Rapado · Add-in web (Office.js) · Hospedado en GitHub Pages.
 
 ## Instalación
+
+¿Primera vez? Sigue la [guía paso a paso](docs/INSTALACION.md).
 
 ### Mac
 
@@ -210,3 +212,8 @@ Tras instalar el add-in, en una presentación de prueba:
    y pulsa "Crear agenda": deben insertarse 5 diapositivas justo después de la activa, cada una con
    el título, la lista completa de secciones y su propia sección resaltada con el color de énfasis
    del tema; cierra y vuelve a abrir el panel y comprueba que el título y las secciones siguen ahí.
+
+## Créditos
+
+Creado por **Victor Lopez Rapado** · [xictorlr.eu](https://xictorlr.eu) ·
+[LinkedIn](https://www.linkedin.com/in/victorlopezrapado/)

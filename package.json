@@ -3,7 +3,7 @@
   "version": "1.5.0",
   "private": true,
   "type": "module",
-  "author": "Victor Lopez",
+  "author": "Victor Lopez Rapado (https://xictorlr.eu)",
   "description": "Panel de herramientas de alineación, tamaño, formato y texto para PowerPoint (Office.js).",
   "engines": {
     "node": ">=20.19"

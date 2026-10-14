@@ -58,6 +58,8 @@ Nota: la paleta es fija porque Office.js no expone los colores del tema de la pr
   tamaño en Ajustes o vuelve a abrir el panel.
 - Las formas rotadas se alinean por su marco sin rotar (igual que expone el API), no por su caja visual.
 - Los comandos actúan sobre las formas devueltas por la selección; dentro de un grupo se trata el grupo como una forma.
+- El formato copiado ("Copiar formato") vive en memoria mientras el panel está abierto; se pierde al cerrarlo.
+- La transparencia (+10 % / −10 %) no aplica cuando el destino de color es "Texto".
 
 ## Desarrollo
 

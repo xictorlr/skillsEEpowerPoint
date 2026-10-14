@@ -98,17 +98,22 @@ export class Panel {
     if (this.busy) return;
     const hasClipboard = getClipboard() !== null;
     const transparencyBlocked = this.persisted.colorTarget === "font";
+    const noPasteParts = Object.values(this.persisted.pasteParts).every((v) => !v);
     for (const { el, cmd } of this.buttons.values()) {
-      const overrideReason = transparencyBlocked && TRANSPARENCY_COMMAND_IDS.has(cmd.id) ? TRANSPARENCY_FONT_REASON : undefined;
-      if (count === null) {
-        el.disabled = overrideReason !== undefined;
-        el.title = overrideReason ? `${cmd.label} — ${overrideReason}` : cmd.label;
-        continue;
-      }
-      const reason = disabledReason(cmd, count, hasClipboard) ?? overrideReason;
+      let override: string | undefined;
+      if (transparencyBlocked && TRANSPARENCY_COMMAND_IDS.has(cmd.id)) override = TRANSPARENCY_FONT_REASON;
+      else if (cmd.id === "paste-format" && noPasteParts) override = "Marca al menos una parte.";
+      const reason = count === null ? override : (disabledReason(cmd, count, hasClipboard) ?? override);
       el.disabled = reason !== undefined;
       el.title = reason ? `${cmd.label} — ${reason}` : cmd.label;
     }
+  }
+
+  /** Aplica un parche a las opciones persistidas, recomputa `options` y guarda. */
+  private updatePersisted(patch: Partial<PersistedOptions>): void {
+    this.persisted = { ...this.persisted, ...patch };
+    this.options = toCommandOptions(this.persisted);
+    saveOptions(this.persisted);
   }
 
   showNotice(text: string, isError = false): void {
@@ -175,8 +180,15 @@ export class Panel {
   }
 
   private colorTargetRow(): HTMLElement {
+    const wrap = document.createElement("div");
+    const subtitle = document.createElement("div");
+    subtitle.className = "st-subtitle";
+    subtitle.textContent = "Destino";
+    wrap.appendChild(subtitle);
     const row = document.createElement("div");
     row.className = "st-row";
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", "Destino del color");
     for (const t of COLOR_TARGETS) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -191,13 +203,12 @@ export class Panel {
       this.targetButtons.set(t.id, btn);
       row.appendChild(btn);
     }
-    return row;
+    wrap.appendChild(row);
+    return wrap;
   }
 
   private setColorTarget(target: ColorTarget): void {
-    this.persisted = { ...this.persisted, colorTarget: target };
-    this.options = toCommandOptions(this.persisted);
-    saveOptions(this.persisted);
+    this.updatePersisted({ colorTarget: target });
     for (const [id, btn] of this.targetButtons) {
       const active = id === target;
       btn.setAttribute("aria-pressed", String(active));
@@ -212,27 +223,43 @@ export class Panel {
     field.append("Otro");
     const input = document.createElement("input");
     input.type = "color";
-    input.addEventListener("change", () => void this.applyColor(input.value));
+    input.value = this.persisted.recentColors[0] ?? "#1F6FEB";
+    let debounce: number | undefined;
+    input.addEventListener("change", () => {
+      window.clearTimeout(debounce);
+      const value = input.value;
+      debounce = window.setTimeout(() => {
+        void this.applyColor(value).then((hex) => {
+          if (hex) input.value = hex;
+        });
+      }, 300);
+    });
     field.appendChild(input);
     return field;
   }
 
-  private async applyColor(color: string): Promise<void> {
+  /** Aplica el color y, si tuvo efecto, lo añade a recientes. Devuelve el hex normalizado si se aplicó. */
+  private async applyColor(color: string): Promise<string | undefined> {
     const hex = normalizeHex(color);
-    if (!hex) return;
+    if (!hex) return undefined;
     const cmd = findCommand("set-color");
-    if (!cmd) return;
+    if (!cmd) return undefined;
     const result = await this.run(cmd, { color: hex });
-    if (result?.ok) {
-      this.persisted = { ...this.persisted, recentColors: pushRecent(this.persisted.recentColors, hex, MAX_RECENT_COLORS) };
-      saveOptions(this.persisted);
+    if (result?.ok && result.changed > 0) {
+      this.updatePersisted({ recentColors: pushRecent(this.persisted.recentColors, hex, MAX_RECENT_COLORS) });
+      const hadFocus = this.recentRowEl?.contains(document.activeElement);
       this.renderRecentRow();
+      if (hadFocus) (this.recentRowEl?.firstElementChild as HTMLElement | null)?.focus();
+      return hex;
     }
+    return undefined;
   }
 
   private pastePartsRow(): HTMLElement {
     const row = document.createElement("div");
     row.className = "st-row";
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", "Partes a pegar");
     for (const part of PASTE_PART_FIELDS) {
       const label = document.createElement("label");
       label.className = "st-check";
@@ -241,9 +268,8 @@ export class Panel {
       input.checked = this.persisted.pasteParts[part.key];
       input.addEventListener("change", () => {
         const pasteParts = { ...this.persisted.pasteParts, [part.key]: input.checked };
-        this.persisted = { ...this.persisted, pasteParts };
-        this.options = toCommandOptions(this.persisted);
-        saveOptions(this.persisted);
+        this.updatePersisted({ pasteParts });
+        this.setSelectionCount(this.lastCount);
       });
       label.append(input, ` ${part.label}`);
       row.appendChild(label);
@@ -302,9 +328,7 @@ export class Panel {
     select.addEventListener("change", () => {
       const slideSizePreset = sanitizeSlideSizePreset(select.value);
       select.value = slideSizePreset;
-      this.persisted = { ...this.persisted, slideSizePreset };
-      this.options = toCommandOptions(this.persisted);
-      saveOptions(this.persisted);
+      this.updatePersisted({ slideSizePreset });
     });
     field.appendChild(select);
     return field;
@@ -330,9 +354,7 @@ export class Panel {
         };
         const matrix = sanitizeMatrix(candidate);
         input.value = String(matrix[key]);
-        this.persisted = { ...this.persisted, matrix };
-        this.options = toCommandOptions(this.persisted);
-        saveOptions(this.persisted);
+        this.updatePersisted({ matrix });
       });
       field.appendChild(input);
       return field;

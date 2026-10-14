@@ -35,8 +35,9 @@ body { margin: 0; background: var(--st-bg); }
 .st-field { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: var(--st-muted); flex-wrap: wrap; max-width: 100%; min-width: 0; }
 .st-field input { width: 46px; font: inherit; padding: 2px 4px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); }
 .st-select { font: inherit; padding: 2px 4px; border: 1px solid var(--st-border); border-radius: 3px; background: var(--st-bg); color: var(--st-fg); max-width: 100%; min-width: 0; width: 100%; }
-.st-swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--st-border); background: var(--swatch); cursor: pointer; padding: 0; }
+.st-swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--st-border); background: var(--swatch); cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px rgba(127,127,127,.5); }
 .st-swatch:focus-visible { outline: 2px solid var(--st-accent); outline-offset: 1px; }
 .st-toggle[aria-pressed="true"], .st-toggle.is-active { background: var(--st-hover); border-color: var(--st-accent); }
 .st-check { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; color: var(--st-muted); }
 .st-subtitle { color: var(--st-muted); font-size: 11px; margin: 4px 0 2px; }
+.st-field input[type="color"] { width: 28px; height: 22px; padding: 0; }

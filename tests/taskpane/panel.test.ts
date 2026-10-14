@@ -267,6 +267,80 @@ describe("theme colors", () => {
   });
 });
 
+describe("Insert section", () => {
+  const KEY = "slide-tools.options";
+
+  function insertSection(root: HTMLElement): HTMLElement {
+    const section = Array.from(root.querySelectorAll<HTMLElement>(".st-section")).find(
+      (sec) => sec.querySelector(".st-section-title")?.textContent === "Insert",
+    );
+    if (!section) throw new Error("sección Insert no encontrada");
+    return section;
+  }
+
+  function persistedInsert(): { count: number; stickerText: string; stickerColor: string } {
+    return (JSON.parse(localStorage.getItem(KEY) ?? "{}") as { insert: { count: number; stickerText: string; stickerColor: string } }).insert;
+  }
+
+  it("renders the 11 insert buttons plus the N, Sticker and Color fields with the persisted defaults", () => {
+    const { root } = createPanel();
+    const section = insertSection(root);
+
+    expect(section.querySelectorAll("button.st-btn[data-command-id^='insert-']").length).toBe(11);
+    expect(commandsBySection("insert").length).toBe(11);
+
+    const count = section.querySelector<HTMLInputElement>('input[type="number"]')!;
+    const text = section.querySelector<HTMLInputElement>('input[type="text"]')!;
+    const color = section.querySelector<HTMLInputElement>('input[type="color"]')!;
+    expect(count.value).toBe("3");
+    expect(count.min).toBe("1");
+    expect(count.max).toBe("12");
+    expect(text.value).toBe("BORRADOR");
+    expect(text.maxLength).toBe(30);
+    expect(color.value.toLowerCase()).toBe("#ffe066");
+    // Los campos van después de la fila de botones (misma sección).
+    const row = section.querySelector(".st-row")!;
+    expect(row.compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("changing N to 40 persists the clamped 12 and reflects it in the input", () => {
+    const { root } = createPanel();
+    const count = insertSection(root).querySelector<HTMLInputElement>('input[type="number"]')!;
+
+    count.value = "40";
+    count.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(count.value).toBe("12");
+    expect(persistedInsert()).toEqual({ count: 12, stickerText: "BORRADOR", stickerColor: "#FFE066" });
+  });
+
+  it("changing the color to #ff0000 persists it normalized to #FF0000; the sticker text is trimmed", () => {
+    const { root } = createPanel();
+    const section = insertSection(root);
+    const color = section.querySelector<HTMLInputElement>('input[type="color"]')!;
+    const text = section.querySelector<HTMLInputElement>('input[type="text"]')!;
+
+    color.value = "#ff0000";
+    color.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(persistedInsert().stickerColor).toBe("#FF0000");
+
+    text.value = "  Final  ";
+    text.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(text.value).toBe("Final");
+    expect(persistedInsert()).toEqual({ count: 3, stickerText: "Final", stickerColor: "#FF0000" });
+  });
+
+  it("loads persisted insert settings into the fields", () => {
+    localStorage.setItem(KEY, JSON.stringify({ insert: { count: 7, stickerText: "WIP", stickerColor: "#00ff00" } }));
+    const { root } = createPanel();
+    const section = insertSection(root);
+
+    expect(section.querySelector<HTMLInputElement>('input[type="number"]')!.value).toBe("7");
+    expect(section.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe("WIP");
+    expect(section.querySelector<HTMLInputElement>('input[type="color"]')!.value.toLowerCase()).toBe("#00ff00");
+  });
+});
+
 describe("recent colors", () => {
   it("a successful applyColor with changed > 0 adds to recents and keeps focus within the row", async () => {
     localStorage.setItem("slide-tools.options", JSON.stringify({ recentColors: ["#AABBCC"] }));

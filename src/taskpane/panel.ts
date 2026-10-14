@@ -10,6 +10,7 @@ import { iconSvg } from "./icons";
 import { ColorSection } from "./sections/colorSection";
 import { ExpertSection } from "./sections/expertSection";
 import { FormatSection } from "./sections/formatSection";
+import { InsertSection } from "./sections/insertSection";
 import { NavigationSection } from "./sections/navigationSection";
 import { SettingsSection } from "./sections/settingsSection";
 import type { SectionContext } from "./sections/types";
@@ -62,6 +63,7 @@ export class Panel {
     const navigationSection = new NavigationSection(ctx);
     const expertSection = new ExpertSection(ctx);
     const wizardSection = new WizardSection(ctx);
+    const insertSection = new InsertSection(ctx);
     const settingsSection = new SettingsSection(ctx);
     this.colorSection = colorSection;
     this.navigationSection = navigationSection;
@@ -82,6 +84,7 @@ export class Panel {
       if (section === "color") sec.append(...colorSection.render());
       if (section === "navigation") sec.append(...navigationSection.render());
       if (section === "expert") sec.append(...expertSection.render());
+      if (section === "insert") sec.append(...insertSection.render());
       if (section === "wizards") sec.append(...wizardSection.render());
       this.root.appendChild(sec);
     });

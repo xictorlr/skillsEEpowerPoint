@@ -33,7 +33,10 @@ Elige la sección de tu sistema operativo.
 
    Qué verás: ninguna ventana especial, solo el cursor del Terminal esperando. Si no aparece ningún
    error en rojo, ha funcionado.
-3. Continúa en el paso 3 de "Opción manual" más abajo.
+3. El comando ya ha descargado el archivo y lo ha dejado en su sitio. Continúa en el paso 4 de
+   "Opción manual" más abajo (cerrar y volver a abrir PowerPoint).
+
+   Esta ruta es la misma aunque hayas instalado PowerPoint desde la Mac App Store.
 
 ### Opción manual (con el Finder)
 
@@ -66,20 +69,23 @@ Si no ves el complemento, repasa "Problemas frecuentes" más abajo.
 
 1. Descarga el archivo del complemento abriendo este enlace en tu navegador:
    https://xictorlr.github.io/skillsEEpowerPoint/manifest.xml
-   Guárdalo en una carpeta fácil de encontrar, por ejemplo `C:\SlideTools`.
+   Guárdalo en una carpeta fácil de encontrar, por ejemplo `C:\SlideTools`. Evita espacios en el
+   nombre de la carpeta (usa `SlideTools`, no `Slide Tools`).
    Qué verás: un archivo `manifest.xml` dentro de esa carpeta.
 2. Comparte esa carpeta contigo mismo para poder apuntar PowerPoint a ella:
    - Clic derecho sobre la carpeta `C:\SlideTools` > **Propiedades** > pestaña **Compartir** >
      **Compartir...** > elige tu propio usuario y pulsa **Compartir**.
    - Qué verás: un mensaje confirmando que la carpeta está compartida, con una ruta de red del
      tipo `\\NOMBRE-PC\SlideTools`. Apunta esa ruta, la necesitas en el paso siguiente.
+   - Si Windows muestra un aviso de seguridad al compartir la carpeta, permite el acceso para
+     continuar.
 3. Abre PowerPoint y ve a **Archivo > Opciones > Centro de confianza > Configuración del Centro
    de confianza... > Catálogos de complementos de confianza**.
 4. Pega la ruta de red (`\\NOMBRE-PC\SlideTools`) en el campo de catálogo y pulsa **"Agregar
    catálogo"**. Marca la casilla **"Mostrar en el menú"** y pulsa **Aceptar** en ambas ventanas.
 5. Cierra PowerPoint por completo y vuelve a abrirlo.
-6. Abre o crea una presentación. Ve a **Insertar > Mis complementos**, abre la pestaña **"Carpeta
-   compartida"** (o "Catálogo compartido") y selecciona **Slide Tools**.
+6. Abre o crea una presentación. Ve a **Insertar > Mis complementos**, abre la pestaña **CARPETA
+   COMPARTIDA** y selecciona **Slide Tools**.
    Qué verás: "Slide Tools" listado ahí; insértalo.
 7. En la pestaña **Inicio** aparece el botón **"Abrir panel"**. Púlsalo para abrir el panel a la
    derecha.

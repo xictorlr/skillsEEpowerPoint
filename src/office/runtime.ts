@@ -1,4 +1,10 @@
-export type CommandResult = { ok: true; changed: number } | { ok: false; message: string };
+export interface CommandOutcome {
+  changed: number;
+  /** Mensaje informativo opcional para el panel (p. ej. "Formato copiado"). */
+  message?: string;
+}
+
+export type CommandResult = ({ ok: true } & CommandOutcome) | { ok: false; message: string };
 
 /**
  * Mensajes de error legibles por código de error de Office.js.
@@ -20,14 +26,14 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Ejecuta `fn` dentro de PowerPoint.run y normaliza el resultado. `fn` devuelve cuántas formas cambió. */
+/** Ejecuta `fn` dentro de PowerPoint.run y normaliza el resultado. `fn` devuelve el resultado del comando. */
 export async function runCommand(
   commandId: string,
-  fn: (context: PowerPoint.RequestContext) => Promise<number>,
+  fn: (context: PowerPoint.RequestContext) => Promise<CommandOutcome>,
 ): Promise<CommandResult> {
   try {
-    const changed = await PowerPoint.run(fn);
-    return { ok: true, changed };
+    const outcome = await PowerPoint.run(fn);
+    return { ok: true, ...outcome };
   } catch (err) {
     const message = describeError(err);
     console.error(`[slide-tools] ${commandId} falló:`, err);

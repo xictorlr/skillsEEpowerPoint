@@ -81,4 +81,23 @@ describe("readSelection", () => {
     expect(selection.slide).toEqual({ width: 720, height: 405 });
     expect(ctx.imageOptions).toBeUndefined();
   });
+
+  it("loads format props and fonts when withFormat is set (two read syncs) and returns formats", async () => {
+    const box = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 20,
+      font: { name: "Arial", size: 14, color: "#112233", bold: true, italic: null, underline: "None" } });
+    const ctx = new MockContext([box], "bad-png");
+    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), slideSizeOverride: { width: 960, height: 540 }, withFormat: true });
+    expect(ctx.loadedProps).toContain("items/fill/type");
+    expect(ctx.loadedProps).toContain("items/lineFormat/weight");
+    expect(box.fontLoaded).toBe(true);
+    expect(ctx.syncCount).toBe(2);
+    expect(formats[0]?.font?.name).toBe("Arial");
+  });
+
+  it("does not load format props by default", async () => {
+    const ctx = new MockContext([new MockShape({ id: "a", left: 0, top: 0, width: 1, height: 1 })], "bad-png");
+    const { formats } = await readSelection(ctx as never, { slideSizeCache: new Map(), slideSizeOverride: { width: 960, height: 540 } });
+    expect(ctx.loadedProps).not.toContain("items/fill/type");
+    expect(formats).toEqual([]);
+  });
 });

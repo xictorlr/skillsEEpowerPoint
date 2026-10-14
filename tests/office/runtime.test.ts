@@ -8,11 +8,21 @@ describe("runCommand", () => {
   });
 
   it("returns ok:true with the changed count on success", async () => {
-    vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<number>) => fn({}) });
+    vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<{ changed: number }>) => fn({}) });
 
-    const result = await runCommand("cmd", async () => 3);
+    const result = await runCommand("cmd", async () => ({ changed: 2 }));
 
-    expect(result).toEqual({ ok: true, changed: 3 });
+    expect(result).toEqual({ ok: true, changed: 2 });
+  });
+
+  it("returns ok:true with changed and an informative message when fn provides one", async () => {
+    vi.stubGlobal("PowerPoint", {
+      run: (fn: (context: unknown) => Promise<{ changed: number; message?: string }>) => fn({}),
+    });
+
+    const result = await runCommand("cmd", async () => ({ changed: 0, message: "Formato copiado" }));
+
+    expect(result).toEqual({ ok: true, changed: 0, message: "Formato copiado" });
   });
 
   it("returns ok:false with the message of a plain thrown Error", async () => {

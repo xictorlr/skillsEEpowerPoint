@@ -25,9 +25,9 @@ export async function executeCommand(cmd: Command, options: CommandOptions): Pro
     const reason = disabledReason(cmd, selection.shapes.length);
     if (reason) throw new Error(reason);
     const patches = cmd.compute(selection, options);
-    if (patches.length === 0) return 0;
+    if (patches.length === 0) return { changed: 0 };
     applyPatches(proxies, patches);
     await context.sync();
-    return new Set(patches.map((p) => p.id)).size;
+    return { changed: new Set(patches.map((p) => p.id)).size };
   });
 }

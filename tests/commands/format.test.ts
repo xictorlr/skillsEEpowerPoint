@@ -15,6 +15,7 @@ const OPTS: CommandOptions = {
   renamePrefix: "Forma",
   shapeKind: "all",
   agenda: { title: "Agenda", sectionsText: "" },
+  insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
 };
 
 let ctx: MockContext;

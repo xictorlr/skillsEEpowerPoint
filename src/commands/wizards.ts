@@ -2,12 +2,9 @@ import { agendaLayout, parseAgendaSections } from "../core/check";
 import { addSlidesAfter, addTextBox, deletePlaceholders, findBlankLayout } from "../office/deck";
 import { readSlideNav } from "../office/navigation";
 import { getSlideSize } from "../office/slideSize";
-import { getThemeColors } from "../office/theme";
+import { resolveAccent } from "./accent";
 import type { ActionCommand } from "./types";
 
-/** Color de acento por defecto cuando `getThemeColors` no está disponible (sin PowerPointApi 1.10)
- *  o no encuentra "Accent1". */
-const DEFAULT_ACCENT = "#1F6FEB";
 /** Color de las secciones no resaltadas de la agenda. */
 const UNHIGHLIGHTED_COLOR = "#7F7F7F";
 
@@ -30,8 +27,7 @@ const agendaCreate: ActionCommand = {
 
     const nav = await readSlideNav(context);
     const size = await getSlideSize(context, slideSizeCache, options.slideSize);
-    const themeColors = await getThemeColors(context);
-    const accent = themeColors?.find((c) => c.name === "Accent1")?.hex ?? DEFAULT_ACCENT;
+    const accent = await resolveAccent(context);
     // Layout "en blanco" del slide master, si existe: evita que la diapositiva nazca con los
     // marcadores de posición del layout por defecto (título, contenido…). Si no se encuentra
     // ninguno, `deletePlaceholders` actúa como red de seguridad una vez creada cada diapositiva

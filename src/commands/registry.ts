@@ -4,6 +4,7 @@ import { checkCommands } from "./check";
 import { colorCommands } from "./color";
 import { expertCommands } from "./expert";
 import { formatCommands } from "./format";
+import { insertCommands } from "./insert";
 import { navigationCommands } from "./navigation";
 import { presentationCommands } from "./presentation";
 import { sizeCommands } from "./size";
@@ -17,6 +18,7 @@ export const SECTION_ORDER: readonly SectionId[] = [
   "format",
   "color",
   "text",
+  "insert",
   "navigation",
   "expert",
   "check",
@@ -30,6 +32,7 @@ export const commands: readonly Command[] = [
   ...formatCommands,
   ...colorCommands,
   ...textCommands,
+  ...insertCommands,
   ...navigationCommands,
   ...expertCommands,
   ...checkCommands,

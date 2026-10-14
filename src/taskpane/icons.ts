@@ -87,6 +87,30 @@ export const icons: Record<string, string> = {
   newPresentation: `<svg ${S}><rect x="1" y="2" width="14" height="12" rx="1"/><path d="M8 6v6M5 9h6" ${REF}/></svg>`,
   exportSlides: `<svg ${S}><rect x="1" y="3" width="9" height="10" rx="1"/><path d="M9 8h5.5M12 5.5 14.5 8 12 10.5" ${REF}/></svg>`,
   agenda: `<svg ${S}><path d="M2 3h12" ${REF}/>${box(2, 6, 12, 2.5)}<path d="M2 11.5h12"/></svg>`,
+  // --- Insert (Fase 8) ---
+  insertColumns: `<svg ${S}><rect x="1" y="2" width="14" height="12" rx="1"/>${box(2.5, 4, 3, 8)}${box(6.5, 4, 3, 8)}${box(10.5, 4, 3, 8)}</svg>`,
+  insertGrid: `<svg ${S}><rect x="1" y="2" width="14" height="12" rx="1"/>${box(2.5, 3.5, 5, 4)}${box(8.5, 3.5, 5, 4)}${box(2.5, 8.5, 5, 4)}${box(8.5, 8.5, 5, 4)}</svg>`,
+  insertChevrons: `<svg ${S}><path d="M1 5h4l2 3-2 3H1l2-3z" fill="currentColor" fill-opacity=".25"/><path d="M6 5h4l2 3-2 3H6l2-3z" fill="currentColor" fill-opacity=".25"/><path d="M11 5h3l1.5 3L14 11h-3l2-3z" fill="currentColor" fill-opacity=".25"/></svg>`,
+  insertCircles: `<svg ${S}><circle cx="4" cy="8" r="2.5" fill="currentColor" fill-opacity=".25"/><circle cx="12" cy="8" r="2.5" fill="currentColor" fill-opacity=".25"/><text x="2.6" y="9.6" font-size="4.5" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">1</text><text x="10.6" y="9.6" font-size="4.5" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">2</text></svg>`,
+  insertSticker: `<svg ${S}><rect x="1" y="2" width="14" height="12" rx="1"/><rect x="7.5" y="3.5" width="6" height="3" rx="1" fill="currentColor" fill-opacity=".4" ${REF}/></svg>`,
+  insertLine: `<svg ${S}><path d="M2 13 14 3"/></svg>`,
+  insertElbow: `<svg ${S}><path d="M2 3v5h12v5"/><path d="M12 11l2 2-2 2"/></svg>`,
+  insertRect: `<svg ${S}>${box(2, 3, 12, 10)}<rect x="2" y="3" width="12" height="10"/></svg>`,
+  insertRounded: `<svg ${S}><rect x="2" y="3" width="12" height="10" rx="3" fill="currentColor" fill-opacity=".25"/></svg>`,
+  insertEllipse: `<svg ${S}><ellipse cx="8" cy="8" rx="6" ry="4.5" fill="currentColor" fill-opacity=".25"/></svg>`,
+  insertTextbox: `<svg ${S}><rect x="2" y="3" width="12" height="10" stroke-dasharray="1.5 1.5"/><path d="M5.5 6h5M8 6v5"/></svg>`,
+  // --- Estilos rápidos de texto (Fase 8) ---
+  styleBold: `<svg ${S}><text x="4" y="12.5" font-size="11" font-weight="bold" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">B</text></svg>`,
+  styleItalic: `<svg ${S}><text x="5.5" y="12.5" font-size="11" font-style="italic" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">I</text></svg>`,
+  styleUnderline: `<svg ${S}><text x="4" y="11" font-size="10" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">U</text><path d="M3.5 13.5h9" ${REF}/></svg>`,
+  styleStrike: `<svg ${S}><text x="4.5" y="12.5" font-size="11" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">S</text><path d="M3 8.5h10" ${REF}/></svg>`,
+  bullets: `<svg ${S}><circle cx="3" cy="4" r="1" fill="currentColor"/><circle cx="3" cy="8" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><path d="M6 4h8M6 8h8M6 12h8"/></svg>`,
+  sizeTitle: `<svg ${S}><text x="1" y="13" font-size="12" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">T</text><text x="9" y="13" font-size="7" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">t</text><path d="M1 15h14" ${REF}/></svg>`,
+  sizeSubtitle: `<svg ${S}><text x="1.5" y="13" font-size="10" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">T</text><text x="9" y="13" font-size="7" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">t</text><path d="M1 15h10" ${REF}/></svg>`,
+  sizeBody: `<svg ${S}><text x="2" y="13" font-size="8" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">T</text><text x="8.5" y="13" font-size="6" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">t</text><path d="M1 15h7" ${REF}/></svg>`,
+  sizeSmall: `<svg ${S}><text x="3" y="13" font-size="6" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">T</text><text x="8" y="13" font-size="5" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">t</text><path d="M1 15h4" ${REF}/></svg>`,
+  indentMore: `<svg ${S}><path d="M2 3h12M7 7h7M7 10h7M2 14h12"/><path d="M2 7v4M2 9h3M3.5 7.5 5 9l-1.5 1.5" ${REF}/></svg>`,
+  indentLess: `<svg ${S}><path d="M2 3h12M7 7h7M7 10h7M2 14h12"/><path d="M5 7v4M5 9H2M3.5 7.5 2 9l1.5 1.5" ${REF}/></svg>`,
 };
 
 export function iconSvg(id: string): string {

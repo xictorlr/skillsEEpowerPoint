@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_AGENDA_TITLE,
+  DEFAULT_INSERT,
   DEFAULT_MATRIX,
   DEFAULT_PERSISTED,
   DEFAULT_RENAME_PREFIX,
   MAX_AGENDA_SECTIONS_TEXT_LENGTH,
   MAX_AGENDA_TITLE_LENGTH,
+  MAX_INSERT_COUNT,
   MAX_RECENT_COLORS,
   MAX_RENAME_PREFIX_LENGTH,
+  MAX_STICKER_TEXT_LENGTH,
+  MIN_INSERT_COUNT,
   SLIDE_SIZE_PRESETS,
   sanitizeAgenda,
   sanitizeAgendaSectionsText,
   sanitizeAgendaTitle,
   sanitizeColorTarget,
   sanitizeFontSizeStep,
+  sanitizeInsert,
   sanitizeMatrix,
   sanitizePasteParts,
   sanitizeRecentColors,
@@ -87,6 +92,7 @@ const BASE_PERSISTED = {
   fontSizeStep: 1,
   renamePrefix: "Forma",
   agenda: { title: "Agenda", sectionsText: "" },
+  insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
 };
 
 describe("toCommandOptions", () => {
@@ -121,6 +127,7 @@ describe("toCommandOptions", () => {
       fontSizeStep: 1,
       renamePrefix: "Forma",
       agenda: { title: "Agenda", sectionsText: "" },
+      insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
     });
     expect(result.colorTarget).toBe("line");
     expect(result.pasteParts).toEqual(pasteParts);
@@ -136,6 +143,7 @@ describe("toCommandOptions", () => {
       fontSizeStep: 1,
       renamePrefix: "Forma",
       agenda: { title: "Agenda", sectionsText: "" },
+      insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
     });
     expect(result.color).toBeUndefined();
   });
@@ -156,6 +164,13 @@ describe("toCommandOptions", () => {
     const agenda = { title: "Kickoff", sectionsText: "Intro\nAgenda\nCierre" };
     const result = toCommandOptions({ ...DEFAULT_PERSISTED, agenda });
     expect(result.agenda).toEqual(agenda);
+  });
+
+  it("passes the persisted insert settings through unchanged, and DEFAULT_PERSISTED carries DEFAULT_INSERT", () => {
+    const insert = { count: 5, stickerText: "FINAL", stickerColor: "#FF0000" };
+    expect(toCommandOptions({ ...DEFAULT_PERSISTED, insert }).insert).toEqual(insert);
+    expect(DEFAULT_PERSISTED.insert).toEqual(DEFAULT_INSERT);
+    expect(toCommandOptions(DEFAULT_PERSISTED).insert).toEqual({ count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" });
   });
 });
 
@@ -364,5 +379,51 @@ describe("sanitizeAgenda", () => {
   it("defaults a missing field while keeping the other", () => {
     expect(sanitizeAgenda({ sectionsText: "Intro" })).toEqual({ title: DEFAULT_AGENDA_TITLE, sectionsText: "Intro" });
     expect(sanitizeAgenda({ title: "Kickoff" })).toEqual({ title: "Kickoff", sectionsText: "" });
+  });
+});
+
+describe("sanitizeInsert", () => {
+  it("falls back to DEFAULT_INSERT for garbage input", () => {
+    expect(sanitizeInsert(undefined)).toEqual(DEFAULT_INSERT);
+    expect(sanitizeInsert(null)).toEqual(DEFAULT_INSERT);
+    expect(sanitizeInsert("not-an-object")).toEqual(DEFAULT_INSERT);
+    expect(sanitizeInsert({})).toEqual({ count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" });
+  });
+
+  it("passes through valid values unchanged", () => {
+    expect(sanitizeInsert({ count: 5, stickerText: "FINAL", stickerColor: "#FF0000" })).toEqual({
+      count: 5,
+      stickerText: "FINAL",
+      stickerColor: "#FF0000",
+    });
+  });
+
+  it("rounds and clamps count to [MIN_INSERT_COUNT, MAX_INSERT_COUNT]; non-finite or non-number count defaults to 3", () => {
+    expect(MIN_INSERT_COUNT).toBe(1);
+    expect(MAX_INSERT_COUNT).toBe(12);
+    expect(sanitizeInsert({ count: 40 }).count).toBe(12);
+    expect(sanitizeInsert({ count: 0 }).count).toBe(1);
+    expect(sanitizeInsert({ count: -7 }).count).toBe(1);
+    expect(sanitizeInsert({ count: 2.5 }).count).toBe(3);
+    expect(sanitizeInsert({ count: 4.4 }).count).toBe(4);
+    expect(sanitizeInsert({ count: NaN }).count).toBe(3);
+    expect(sanitizeInsert({ count: Infinity }).count).toBe(3);
+    expect(sanitizeInsert({ count: "6" }).count).toBe(3);
+  });
+
+  it("trims stickerText and caps it at MAX_STICKER_TEXT_LENGTH; a non-string defaults; empty is kept (the command falls back)", () => {
+    expect(MAX_STICKER_TEXT_LENGTH).toBe(30);
+    expect(sanitizeInsert({ stickerText: "  Draft  " }).stickerText).toBe("Draft");
+    expect(sanitizeInsert({ stickerText: "x".repeat(45) }).stickerText).toBe("x".repeat(30));
+    expect(sanitizeInsert({ stickerText: 42 }).stickerText).toBe("BORRADOR");
+    expect(sanitizeInsert({ stickerText: "" }).stickerText).toBe("");
+    expect(sanitizeInsert({ stickerText: "   " }).stickerText).toBe("");
+  });
+
+  it("normalizes stickerColor to #RRGGBB and defaults invalid colors", () => {
+    expect(sanitizeInsert({ stickerColor: "#ff0000" }).stickerColor).toBe("#FF0000");
+    expect(sanitizeInsert({ stickerColor: "abc" }).stickerColor).toBe("#AABBCC");
+    expect(sanitizeInsert({ stickerColor: "not-a-color" }).stickerColor).toBe("#FFE066");
+    expect(sanitizeInsert({ stickerColor: 123 }).stickerColor).toBe("#FFE066");
   });
 });

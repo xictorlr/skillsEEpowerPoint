@@ -151,9 +151,42 @@ export function sanitizeAgenda(input: unknown): AgendaSettings {
 
 export const DEFAULT_AGENDA: AgendaSettings = { title: DEFAULT_AGENDA_TITLE, sectionsText: "" };
 
+/** Parámetros persistidos de la sección Insert (misma forma que `CommandOptions.insert`). */
+export type InsertSettings = CommandOptions["insert"];
+
+/** Límites de la cantidad (columnas, chevrones, círculos) de la sección Insert; coinciden con el
+ *  clamp interno de `core/insert.ts`. */
+export const MIN_INSERT_COUNT = 1;
+export const MAX_INSERT_COUNT = 12;
+
+/** Longitud máxima del texto de la sticker. */
+export const MAX_STICKER_TEXT_LENGTH = 30;
+
+export const DEFAULT_INSERT: InsertSettings = { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" };
+
+/**
+ * Sanea un valor arbitrario (p.ej. JSON.parse de localStorage, o los controles de la sección) a una
+ * InsertSettings válida: `count` finito se redondea y acota a [1, 12] (otro valor cae a 3);
+ * `stickerText` se recorta (trim) y acota a MAX_STICKER_TEXT_LENGTH (un no-string cae al valor por
+ * defecto; una cadena vacía se conserva: el comando `insert-sticker` ya cae a "BORRADOR");
+ * `stickerColor` se normaliza a "#RRGGBB" (si no es válido, cae al valor por defecto).
+ */
+export function sanitizeInsert(input: unknown): InsertSettings {
+  const obj = input !== null && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  const count =
+    typeof obj.count === "number" && Number.isFinite(obj.count)
+      ? Math.min(MAX_INSERT_COUNT, Math.max(MIN_INSERT_COUNT, Math.round(obj.count)))
+      : DEFAULT_INSERT.count;
+  const stickerText =
+    typeof obj.stickerText === "string" ? obj.stickerText.trim().slice(0, MAX_STICKER_TEXT_LENGTH) : DEFAULT_INSERT.stickerText;
+  const stickerColor = (typeof obj.stickerColor === "string" ? normalizeHex(obj.stickerColor) : null) ?? DEFAULT_INSERT.stickerColor;
+  return { count, stickerText, stickerColor };
+}
+
 /** Forma persistida en localStorage (ver settings.ts): matriz, preset de tamaño de diapositiva,
  *  colores recientes, destino de color, partes a pegar por defecto, paso de tamaño de fuente,
- *  prefijo de "Renombrar numerado" y título/secciones del asistente "Crear agenda". */
+ *  prefijo de "Renombrar numerado", título/secciones del asistente "Crear agenda" y parámetros
+ *  de la sección Insert. */
 export interface PersistedOptions {
   matrix: MatrixOptions;
   slideSizePreset: SlideSizePreset;
@@ -163,6 +196,7 @@ export interface PersistedOptions {
   fontSizeStep: number;
   renamePrefix: string;
   agenda: AgendaSettings;
+  insert: InsertSettings;
 }
 
 export const DEFAULT_PERSISTED: PersistedOptions = {
@@ -174,6 +208,7 @@ export const DEFAULT_PERSISTED: PersistedOptions = {
   fontSizeStep: DEFAULT_FONT_SIZE_STEP,
   renamePrefix: DEFAULT_RENAME_PREFIX,
   agenda: DEFAULT_AGENDA,
+  insert: DEFAULT_INSERT,
 };
 
 /** Convierte las opciones persistidas (ya saneadas) en las CommandOptions que consumen los comandos.
@@ -191,5 +226,6 @@ export function toCommandOptions(persisted: PersistedOptions): CommandOptions {
     renamePrefix: persisted.renamePrefix,
     shapeKind: "all",
     agenda: persisted.agenda,
+    insert: persisted.insert,
   };
 }

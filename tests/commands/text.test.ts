@@ -15,6 +15,7 @@ const OPTS: CommandOptions = {
   renamePrefix: "Forma",
   shapeKind: "all",
   agenda: { title: "Agenda", sectionsText: "" },
+  insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
 };
 
 let ctx: MockContext;
@@ -67,17 +68,123 @@ describe("text commands", () => {
     expect(r).toEqual({ ok: true, changed: 0, message: "La selección no tiene texto." });
   });
 
-  it("registers the 21 text commands in the section, in order", () => {
+  it("registers the 30 text commands visible without API 1.10 in the section, in order (indent hidden)", () => {
     expect(commandsBySection("text").map((c) => c.id)).toEqual([
       "case-upper", "case-lower", "case-sentence", "case-title",
+      "style-bold", "style-italic", "style-underline", "style-strike",
       "font-bigger", "font-smaller",
+      "size-title", "size-subtitle", "size-body", "size-small",
       "para-left", "para-center", "para-right", "para-justify",
+      "bullets-toggle",
       "valign-top", "valign-middle", "valign-bottom",
       "margins-zero", "margins-standard",
       "autosize-none", "autosize-shrink", "autosize-shape",
       "wrap-on", "wrap-off",
       "clean-text",
     ]);
+    expect(findCommand("indent-more")).toBeDefined();
+    expect(findCommand("indent-less")).toBeDefined();
+  });
+
+  it("includes indent-more/indent-less right after bullets-toggle when the host supports PowerPointApi 1.10", () => {
+    vi.stubGlobal("Office", { context: { requirements: { isSetSupported: () => true } } });
+    const ids = commandsBySection("text").map((c) => c.id);
+    expect(ids).toHaveLength(32);
+    expect(ids.slice(ids.indexOf("bullets-toggle"), ids.indexOf("bullets-toggle") + 3)).toEqual(["bullets-toggle", "indent-more", "indent-less"]);
+    expect(findCommand("indent-more")!.requiresApi).toBe("1.10");
+    expect(findCommand("indent-less")!.requiresApi).toBe("1.10");
+  });
+
+  describe("quick styles (Fase 8)", () => {
+    const boldBox = (id: string, bold: boolean) =>
+      new MockShape({
+        id, type: "TextBox", left: 0, top: 0, width: 10, height: 10,
+        font: { name: "Calibri", size: 18, color: "#000000", bold, italic: false, underline: "None" },
+      });
+
+    it("style-bold on a mixed selection sets bold on the shapes that were not bold", async () => {
+      const a = boldBox("a", true);
+      const b = boldBox("b", false);
+      ctx = new MockContext([a, b], "bad-png");
+
+      const r = await executeCommand(findCommand("style-bold")!, OPTS);
+
+      expect(r).toEqual({ ok: true, changed: 1 });
+      expect(a.formatWrites.map((w) => w.path)).not.toContain("font.bold");
+      expect(b.formatWrites).toContainEqual({ path: "font.bold", value: true });
+    });
+
+    it("style-bold on an all-bold selection clears bold on every shape", async () => {
+      const a = boldBox("a", true);
+      const b = boldBox("b", true);
+      ctx = new MockContext([a, b], "bad-png");
+
+      const r = await executeCommand(findCommand("style-bold")!, OPTS);
+
+      expect(r).toEqual({ ok: true, changed: 2 });
+      expect(a.formatWrites).toContainEqual({ path: "font.bold", value: false });
+      expect(b.formatWrites).toContainEqual({ path: "font.bold", value: false });
+    });
+
+    it("style-italic / style-underline / bullets-toggle flip the corresponding property (defaults: off, off, on)", async () => {
+      const a = textBox("a");
+      ctx = new MockContext([a], "bad-png");
+      await executeCommand(findCommand("style-italic")!, OPTS);
+      expect(a.formatWrites).toContainEqual({ path: "font.italic", value: true });
+
+      const b = textBox("b");
+      ctx = new MockContext([b], "bad-png");
+      await executeCommand(findCommand("style-underline")!, OPTS);
+      expect(b.formatWrites).toContainEqual({ path: "font.underline", value: "Single" });
+
+      const c = textBox("c"); // bulletsVisible por defecto del mock: true -> se apagan
+      ctx = new MockContext([c], "bad-png");
+      await executeCommand(findCommand("bullets-toggle")!, OPTS);
+      expect(c.formatWrites).toContainEqual({ path: "bulletFormat.visible", value: false });
+    });
+
+    it("size-title writes font.size 24; size-small writes 11", async () => {
+      const a = textBox("a"); // 18 pt por defecto
+      ctx = new MockContext([a], "bad-png");
+      const r = await executeCommand(findCommand("size-title")!, OPTS);
+      expect(r).toEqual({ ok: true, changed: 1 });
+      expect(a.formatWrites).toContainEqual({ path: "font.size", value: 24 });
+
+      const b = textBox("b");
+      ctx = new MockContext([b], "bad-png");
+      await executeCommand(findCommand("size-small")!, OPTS);
+      expect(b.formatWrites).toContainEqual({ path: "font.size", value: 11 });
+    });
+
+    it("size-subtitle (18) on an 18 pt box reports nothing to change", async () => {
+      const a = textBox("a");
+      ctx = new MockContext([a], "bad-png");
+      const r = await executeCommand(findCommand("size-subtitle")!, OPTS);
+      expect(r).toEqual({ ok: true, changed: 0 });
+    });
+
+    it("indent-more writes indentLevel + 1 with API 1.10 (indent-less at level 0 changes nothing)", async () => {
+      vi.stubGlobal("Office", {
+        context: { requirements: { isSetSupported: (name: string, version: string) => name === "PowerPointApi" && version === "1.10" } },
+      });
+      const a = new MockShape({ id: "a", type: "TextBox", left: 0, top: 0, width: 10, height: 10, textProps: { indentLevel: 1 } });
+      ctx = new MockContext([a], "bad-png");
+      const r = await executeCommand(findCommand("indent-more")!, OPTS);
+      expect(r).toEqual({ ok: true, changed: 1 });
+      expect(a.formatWrites).toContainEqual({ path: "paragraphFormat.indentLevel", value: 2 });
+
+      const b = textBox("b"); // indentLevel 0
+      ctx = new MockContext([b], "bad-png");
+      expect(await executeCommand(findCommand("indent-less")!, OPTS)).toEqual({ ok: true, changed: 0 });
+    });
+
+    it("indent-more fails with the API reason when the host lacks PowerPointApi 1.10", async () => {
+      const a = textBox("a");
+      ctx = new MockContext([a], "bad-png");
+      const r = await executeCommand(findCommand("indent-more")!, OPTS);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toBe("Requiere PowerPoint reciente (API 1.10).");
+    });
   });
 
   it("font-smaller subtracts fontSizeStep points from font.size", async () => {

@@ -378,6 +378,12 @@ export class MockShape {
     }
   }
 
+  /** `shape.load(props)` (p. ej. `"id"` sobre una forma recién creada, ver `commands/insert.ts`):
+   *  registra `{ path: "shape", props }` en `loads`. Los valores ya están disponibles en el mock. */
+  load(props: string): void {
+    this.loads.push({ path: "shape", props });
+  }
+
   /** `shape.setZOrder(op)`: registra `{ path: "setZOrder", value: op }` en `formatWrites`. */
   setZOrder(op: string): void {
     this.recordFormatWrite("setZOrder", op);

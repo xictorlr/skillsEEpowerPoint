@@ -13,6 +13,7 @@ const DEFAULT_OPTIONS: CommandOptions = {
   renamePrefix: "Forma",
   shapeKind: "all",
   agenda: { title: "Agenda", sectionsText: "" },
+  insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
 };
 
 function stubPowerPoint(ctx: MockContext, createPresentationMock = vi.fn().mockResolvedValue(undefined)): typeof createPresentationMock {

@@ -12,6 +12,7 @@ const OPTS: CommandOptions = {
   renamePrefix: "Forma",
   shapeKind: "all",
   agenda: { title: "Agenda", sectionsText: "" },
+  insert: { count: 3, stickerText: "BORRADOR", stickerColor: "#FFE066" },
 };
 
 describe("registry", () => {
@@ -45,6 +46,7 @@ describe("registry", () => {
       "format",
       "color",
       "text",
+      "insert",
       "navigation",
       "expert",
       "check",

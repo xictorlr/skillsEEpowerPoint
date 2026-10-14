@@ -11,6 +11,7 @@ export type SectionId =
   | "format"
   | "color"
   | "text"
+  | "insert"
   | "navigation"
   | "expert"
   | "check"
@@ -23,6 +24,7 @@ export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   format: "Format",
   color: "Color",
   text: "Text",
+  insert: "Insert",
   navigation: "Navigation",
   expert: "Expert",
   check: "Check",
@@ -54,6 +56,9 @@ export interface CommandOptions {
   shapeKind: ShapeKind;
   /** Título y texto del textarea (una sección por línea) del asistente "Crear agenda". */
   agenda: { title: string; sectionsText: string };
+  /** Parámetros de la sección Insert: `count` (1..12) para columnas/chevrones/círculos, y texto y
+   *  color de relleno ("#RRGGBB") de la sticker. Un `stickerText` vacío cae a "BORRADOR" en el comando. */
+  insert: { count: number; stickerText: string; stickerColor: string };
 }
 
 export interface ActionContext {

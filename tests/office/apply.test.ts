@@ -17,4 +17,10 @@ describe("applyPatches", () => {
     applyPatches(new Map([["a", a]]), [{ id: "zzz", left: 1 }]);
     expect(a.writes).toEqual([]);
   });
+
+  it("skips non-finite values (NaN, Infinity) instead of writing them", () => {
+    const a = new MockShape({ id: "a", left: 0, top: 0, width: 10, height: 10 });
+    applyPatches(new Map([["a", a]]), [{ id: "a", left: NaN, top: Infinity, width: -Infinity, height: 5 }]);
+    expect(a.writes).toEqual([{ prop: "height", value: 5 }]);
+  });
 });

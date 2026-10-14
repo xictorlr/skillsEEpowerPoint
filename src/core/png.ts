@@ -17,7 +17,15 @@ export function pngDimensions(base64: string): PixelSize {
   return { width: view.getUint32(16), height: view.getUint32(20) };
 }
 
-/** Convierte la proporción de una imagen de la diapositiva a puntos, asumiendo alto estándar 540 pt. */
+/**
+ * Convierte la proporción de una imagen de la diapositiva a puntos, asumiendo alto estándar 540 pt
+ * (el usado por PowerPoint en 16:9, 4:3, A4 y Letter modernos).
+ *
+ * Limitación conocida: diapositivas con un alto distinto de 540 pt —p. ej. el 16:9 heredado de
+ * 720x405 pt, o un tamaño personalizado— producirán un ancho incorrecto, porque esta función no
+ * tiene forma de saber el alto real a partir solo del PNG. Para esos casos, quien llama a
+ * `getSlideSize` puede pasar un `override` con el tamaño real y evitar este cálculo.
+ */
 export function slideSizeFromAspect(px: PixelSize): SlideSize {
   const width = Math.round((STANDARD_SLIDE_HEIGHT_PT * px.width) / px.height);
   return { width, height: STANDARD_SLIDE_HEIGHT_PT };

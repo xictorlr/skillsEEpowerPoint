@@ -55,11 +55,25 @@ export class MockShape {
 
 export class MockContext {
   syncCount = 0;
+  /** Cadena de propiedades pasada al último `load()` de la colección de formas. */
+  loadedProps?: string;
+  /** Opciones pasadas al último `getImageAsBase64()`; queda `undefined` si nunca se llamó. */
+  imageOptions?: Record<string, unknown>;
   constructor(public shapes: MockShape[], public slidePng = "") {}
   presentation = {
-    getSelectedShapes: () => ({ items: this.shapes, load: () => undefined }),
+    getSelectedShapes: () => ({
+      items: this.shapes,
+      load: (props: string) => {
+        this.loadedProps = props;
+      },
+    }),
     getSelectedSlides: () => ({
-      getItemAt: () => ({ getImageAsBase64: () => ({ value: this.slidePng }) }),
+      getItemAt: () => ({
+        getImageAsBase64: (options: Record<string, unknown>) => {
+          this.imageOptions = options;
+          return { value: this.slidePng };
+        },
+      }),
     }),
   };
   async sync(): Promise<void> {

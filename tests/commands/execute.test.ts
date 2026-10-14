@@ -5,7 +5,11 @@ import type { CommandOptions } from "../../src/commands/types";
 import { MockContext, MockShape } from "../office/mockPowerPoint";
 import { shape, slide16x9 } from "../core/fixtures";
 
-const DEFAULT_OPTIONS: CommandOptions = { matrix: { columns: 2, gapX: 8, gapY: 8 } };
+const DEFAULT_OPTIONS: CommandOptions = {
+  matrix: { columns: 2, gapX: 8, gapY: 8 },
+  colorTarget: "fill",
+  pasteParts: { fill: true, line: true, font: true, size: true },
+};
 
 function stubPowerPoint(ctx: MockContext): void {
   vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<number>) => fn(ctx) });
@@ -84,7 +88,7 @@ describe("executeCommand", () => {
     expect(ctx.syncCount).toBe(2); // read selección + escritura, sin render de diapositiva
   });
 
-  it("every command computes patches referencing only the selected shapes, without throwing", () => {
+  it("every geometry command computes patches referencing only the selected shapes, without throwing", () => {
     const selectionShapes = [
       shape({ id: "a", left: 0, top: 0, width: 10, height: 10 }),
       shape({ id: "b", left: 20, top: 5, width: 15, height: 12 }),
@@ -94,6 +98,7 @@ describe("executeCommand", () => {
     const selection = { shapes: selectionShapes, slide: slide16x9 };
 
     for (const cmd of commands) {
+      if (cmd.kind !== "geometry") continue;
       let patches: ReturnType<typeof cmd.compute> = [];
       expect(() => {
         patches = cmd.compute(selection, DEFAULT_OPTIONS);

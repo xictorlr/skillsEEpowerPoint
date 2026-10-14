@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { commands, disabledReason, findCommand } from "../../src/commands/registry";
+import { SECTION_ORDER, commands, commandsBySection, disabledReason, findCommand } from "../../src/commands/registry";
+import type { CommandOptions } from "../../src/commands/types";
 import { shape, slide16x9 } from "../core/fixtures";
+
+const OPTS: CommandOptions = {
+  matrix: { columns: 2, gapX: 8, gapY: 8 },
+  colorTarget: "fill",
+  pasteParts: { fill: true, line: true, font: true, size: true },
+};
 
 describe("registry", () => {
   it("has unique ids and icons defined", () => {
@@ -19,9 +26,24 @@ describe("registry", () => {
 
   it("align-left computes patches via core", () => {
     const cmd = findCommand("align-left")!;
+    if (cmd.kind !== "geometry") throw new Error("expected a geometry command");
     const ref = shape({ id: "r", left: 10, top: 0, width: 10, height: 10 });
     const b = shape({ id: "b", left: 50, top: 0, width: 10, height: 10 });
-    const patches = cmd.compute({ shapes: [ref, b], slide: slide16x9 }, { matrix: { columns: 2, gapX: 8, gapY: 8 } });
+    const patches = cmd.compute({ shapes: [ref, b], slide: slide16x9 }, OPTS);
     expect(patches).toEqual([{ id: "b", left: 10 }]);
+  });
+
+  it("includes format and color sections and hides set-color from buttons", () => {
+    expect(SECTION_ORDER).toEqual(["alignment", "size", "format", "color"]);
+    expect(commandsBySection("format").map((c) => c.id)).toEqual(["copy-format", "paste-format", "paste-fill", "paste-line", "paste-font", "paste-size"]);
+    expect(commandsBySection("color").map((c) => c.id)).toEqual(["no-fill", "no-line", "transparency-up", "transparency-down"]);
+    expect(findCommand("set-color")).toBeDefined();
+  });
+
+  it("disables paste commands without a clipboard", () => {
+    const paste = findCommand("paste-format")!;
+    expect(disabledReason(paste, 1, false)).toMatch(/copia el formato/);
+    expect(disabledReason(paste, 1, true)).toBeUndefined();
+    expect(disabledReason(findCommand("copy-format")!, 1, false)).toBeUndefined();
   });
 });

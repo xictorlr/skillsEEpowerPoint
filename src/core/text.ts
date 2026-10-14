@@ -153,15 +153,38 @@ function wordTokens(line: string): Token[] {
 }
 
 /**
+ * Ediciones por palabra (offsets locales a la línea) si, y solo si, ambas líneas
+ * tokenizan al mismo número de palabras y cada par de tokens tiene el mismo `start`
+ * y `length` (solo cambia el contenido). Si no hay esa alineación 1:1, devuelve `null`
+ * para que la llamadora recurra a una única edición de línea completa.
+ */
+function alignedWordEdits(oldLine: string, newLine: string): Token[] | null {
+  const oldTokens = wordTokens(oldLine);
+  const newTokens = wordTokens(newLine);
+  if (oldTokens.length !== newTokens.length) return null;
+  const out: Token[] = [];
+  for (let t = 0; t < oldTokens.length; t++) {
+    const ot = oldTokens[t]!;
+    const nt = newTokens[t]!;
+    if (ot.start !== nt.start || ot.length !== nt.length) return null;
+    if (ot.text !== nt.text) out.push({ start: ot.start, length: ot.length, text: nt.text });
+  }
+  // Si ningún token cambió pero las líneas difieren, la diferencia está en los
+  // espacios entre tokens: no es representable a nivel de palabra.
+  return out.length > 0 ? out : null;
+}
+
+/**
  * Calcula ediciones de sub-rango (índices UTF-16 sobre `oldText`) que transforman
  * `oldText` en `newText`, preservando el formato de las partes sin cambios:
- * - Si el número de párrafos coincide, compara párrafo a párrafo: si la longitud del
- *   párrafo no cambia (p. ej. un cambio de caja), emite ediciones por palabra (tramos de
- *   no-espacio) solo para las palabras que cambian; si cambia la longitud, emite una
- *   única edición para el párrafo completo.
- * - Si el número de párrafos difiere (p. ej. `cleanText` eliminó párrafos vacíos), emite
- *   una única edición de reemplazo de todo el texto (no hay una correspondencia 1:1 de
- *   párrafos en la que basar ediciones parciales).
+ * - Si el número de párrafos difiere, o si algún separador de párrafo cambia (p. ej.
+ *   `\r` por `\v`), emite una única edición de reemplazo de todo el texto (no hay una
+ *   correspondencia 1:1 de párrafos en la que basar ediciones parciales).
+ * - Si no, compara párrafo a párrafo: si ambas líneas tokenizan al mismo número de
+ *   palabras y cada par de tokens coincide en posición y longitud (p. ej. un cambio de
+ *   caja), emite ediciones por palabra solo para las palabras que cambian; en cualquier
+ *   otro caso (longitud de línea distinta, o palabras desalineadas por un espacio que se
+ *   movió) emite una única edición para el párrafo completo.
  * El resultado viene ordenado por `start` DESCENDENTE, listo para aplicarse en ese orden.
  */
 export function computeTextEdits(oldText: string, newText: string): TextEdit[] {
@@ -171,20 +194,20 @@ export function computeTextEdits(oldText: string, newText: string): TextEdit[] {
   if (oldLines.length !== newLines.length) {
     return [{ start: 0, length: oldText.length, text: newText }];
   }
+  for (let i = 0; i < oldLines.length; i++) {
+    if (oldLines[i]!.sep !== newLines[i]!.sep) return [{ start: 0, length: oldText.length, text: newText }];
+  }
   const edits: TextEdit[] = [];
   let offset = 0;
   for (let i = 0; i < oldLines.length; i++) {
     const oldLine = oldLines[i]!;
     const newLine = newLines[i]!;
     if (oldLine.text !== newLine.text) {
-      if (oldLine.text.length === newLine.text.length) {
-        const oldTokens = wordTokens(oldLine.text);
-        const newTokens = wordTokens(newLine.text);
-        for (let t = 0; t < oldTokens.length; t++) {
-          const ot = oldTokens[t]!;
-          const nt = newTokens[t];
-          if (nt && ot.text !== nt.text) edits.push({ start: offset + ot.start, length: ot.length, text: nt.text });
-        }
+      const wordEdits = oldLine.text.length === newLine.text.length
+        ? alignedWordEdits(oldLine.text, newLine.text)
+        : null;
+      if (wordEdits) {
+        for (const e of wordEdits) edits.push({ start: offset + e.start, length: e.length, text: e.text });
       } else {
         edits.push({ start: offset, length: oldLine.text.length, text: newLine.text });
       }

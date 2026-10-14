@@ -12,6 +12,13 @@ function ts(id: string, over: Partial<TextShape> = {}): TextShape {
   };
 }
 
+/** Aplica ediciones de sub-rango (en el orden del arreglo, como haría el adaptador Office). */
+function applyEdits(text: string, edits: { start: number; length: number; text: string }[]): string {
+  let result = text;
+  for (const e of edits) result = result.slice(0, e.start) + e.text + result.slice(e.start + e.length);
+  return result;
+}
+
 describe("splitLines", () => {
   it("splits on \\r, \\n and \\v keeping the separators", () => {
     expect(splitLines("a\rb\nc\vd")).toEqual([
@@ -89,6 +96,27 @@ describe("computeTextEdits", () => {
     expect(computeTextEdits("hola\r\rmundo", "hola\rmundo")).toEqual([
       { start: 0, length: 11, text: "hola\rmundo" },
     ]);
+  });
+  it("falls back to a whole-line edit when word tokens are not aligned (count/position/length), even if the line length matches", () => {
+    expect(computeTextEdits("a b", "ab ")).toEqual([{ start: 0, length: 3, text: "ab " }]);
+  });
+  it("falls back to a single whole-text edit when a separator changes, even with matching line counts", () => {
+    expect(computeTextEdits("a\rb", "a\vb")).toEqual([{ start: 0, length: 3, text: "a\vb" }]);
+  });
+});
+
+describe("computeTextEdits + applyEdits round-trip", () => {
+  const cases: Array<[string, string]> = [
+    ["hola mundo", "hola mundo"],
+    ["hola MUNDO bien", "HOLA MUNDO BIEN"],
+    ["ß", "SS"],
+    ["uno\rdos tres\rcuatro", "uno\rDOS tres\rcuatro"],
+    ["hola\r\rmundo", "hola\rmundo"],
+    ["a b", "ab "],
+    ["a\rb", "a\vb"],
+  ];
+  it.each(cases)("applying computeTextEdits(%j, %j) to the old text reproduces the new text", (oldText, newText) => {
+    expect(applyEdits(oldText, computeTextEdits(oldText, newText))).toBe(newText);
   });
 });
 

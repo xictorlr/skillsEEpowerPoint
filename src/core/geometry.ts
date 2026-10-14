@@ -48,3 +48,39 @@ export function alignToSlide(shapes: ShapeModel[], slide: SlideSize, edge: Align
   if (shapes.length === 0) return [];
   return alignToRect(shapes, { left: 0, top: 0, width: slide.width, height: slide.height }, edge);
 }
+
+export type Axis = "h" | "v";
+
+/** Reparte el espacio entre formas de modo uniforme. Las dos extremas (por posición) no se mueven. */
+export function distribute(shapes: ShapeModel[], axis: Axis): Patch[] {
+  if (shapes.length < 3) return [];
+  const pos = axis === "h" ? "left" : "top";
+  const size = axis === "h" ? "width" : "height";
+  const sorted = [...shapes].sort((a, b) => a[pos] + a[size] / 2 - (b[pos] + b[size] / 2));
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (!first || !last) return [];
+  const span = last[pos] + last[size] - first[pos];
+  const total = sorted.reduce((acc, s) => acc + s[size], 0);
+  const gap = (span - total) / (sorted.length - 1);
+  const patches: Patch[] = [];
+  let cursor = first[pos] + first[size] + gap;
+  for (const s of sorted.slice(1, -1)) {
+    if (!near(cursor, s[pos])) patches.push({ id: s.id, [pos]: cursor } as Patch);
+    cursor += s[size] + gap;
+  }
+  return patches;
+}
+
+/** Intercambia los centros de dos formas. */
+export function swapPositions(shapes: ShapeModel[]): Patch[] {
+  if (shapes.length !== 2) return [];
+  const [a, b] = shapes;
+  if (!a || !b) return [];
+  const ca = { x: a.left + a.width / 2, y: a.top + a.height / 2 };
+  const cb = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  return [
+    { id: a.id, left: cb.x - a.width / 2, top: cb.y - a.height / 2 },
+    { id: b.id, left: ca.x - b.width / 2, top: ca.y - b.height / 2 },
+  ];
+}

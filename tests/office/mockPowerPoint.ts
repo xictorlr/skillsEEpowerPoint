@@ -429,6 +429,26 @@ export class MockSlide {
     for (const s of shapes) s.ctx = ctx;
   }
 
+  /**
+   * Crea una forma nueva de tipo `type`, la añade a la diapositiva y registra
+   * `{ id, path, value }` en `ctx.calls`. Compartido por `addTextBox`, `addGeometricShape` y
+   * `addLine` (mismo comportamiento; solo cambian el tipo de forma y los datos registrados en
+   * `value`).
+   */
+  private addShape(
+    type: string,
+    path: string,
+    value: Record<string, unknown>,
+    opts: { left: number; top: number; width: number; height: number },
+  ): MockShape {
+    this.ctx.addedShapes += 1;
+    const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type, ...opts });
+    shape.ctx = this.ctx;
+    this.shapesList.push(shape);
+    this.ctx.calls.push({ id: shape.id, path, value });
+    return shape;
+  }
+
   get shapes() {
     return {
       items: this.shapesList,
@@ -437,35 +457,17 @@ export class MockSlide {
       },
       /** `shapes.addTextBox(text, opts)`: crea un `MockShape` de tipo "TextBox", lo añade a la
        *  diapositiva y registra `{ id, path: "addTextBox", value: { text, ...opts } }` en `ctx.calls`. */
-      addTextBox: (text: string, opts: { left: number; top: number; width: number; height: number }): MockShape => {
-        this.ctx.addedShapes += 1;
-        const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type: "TextBox", ...opts });
-        shape.ctx = this.ctx;
-        this.shapesList.push(shape);
-        this.ctx.calls.push({ id: shape.id, path: "addTextBox", value: { text, ...opts } });
-        return shape;
-      },
+      addTextBox: (text: string, opts: { left: number; top: number; width: number; height: number }): MockShape =>
+        this.addShape("TextBox", "addTextBox", { text, ...opts }, opts),
       /** `shapes.addGeometricShape(type, opts)`: crea un `MockShape` de tipo "GeometricShape", lo
        *  añade a la diapositiva y registra `{ id, path: "addGeometricShape", value: { type, ...opts } }`
        *  en `ctx.calls`. */
-      addGeometricShape: (type: string, opts: { left: number; top: number; width: number; height: number }): MockShape => {
-        this.ctx.addedShapes += 1;
-        const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type: "GeometricShape", ...opts });
-        shape.ctx = this.ctx;
-        this.shapesList.push(shape);
-        this.ctx.calls.push({ id: shape.id, path: "addGeometricShape", value: { type, ...opts } });
-        return shape;
-      },
+      addGeometricShape: (type: string, opts: { left: number; top: number; width: number; height: number }): MockShape =>
+        this.addShape("GeometricShape", "addGeometricShape", { type, ...opts }, opts),
       /** `shapes.addLine(kind, opts)`: crea un `MockShape` de tipo "Line", lo añade a la
        *  diapositiva y registra `{ id, path: "addLine", value: { kind, ...opts } }` en `ctx.calls`. */
-      addLine: (kind: string, opts: { left: number; top: number; width: number; height: number }): MockShape => {
-        this.ctx.addedShapes += 1;
-        const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type: "Line", ...opts });
-        shape.ctx = this.ctx;
-        this.shapesList.push(shape);
-        this.ctx.calls.push({ id: shape.id, path: "addLine", value: { kind, ...opts } });
-        return shape;
-      },
+      addLine: (kind: string, opts: { left: number; top: number; width: number; height: number }): MockShape =>
+        this.addShape("Line", "addLine", { kind, ...opts }, opts),
     };
   }
 

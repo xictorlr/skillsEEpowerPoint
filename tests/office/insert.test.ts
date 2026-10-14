@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { addGeometric, addLine, addTextBoxes, selectCreated } from "../../src/office/insert";
-import { MockContext, MockShape } from "./mockPowerPoint";
+import { MockContext, MockShape, MockSlide } from "./mockPowerPoint";
 
 const rect = { left: 10, top: 20, width: 100, height: 50 };
 
+/** Diapositiva vacía, lista para `addTextBoxes`/`addGeometric`/`addLine`/`selectCreated`. */
+function newSlide(): { ctx: MockContext; slide: MockSlide } {
+  const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
+  return { ctx, slide: ctx.slidesList[0]! };
+}
+
 describe("addTextBoxes", () => {
   it("adds one text box per rect/text, recording each call and the shared style", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { ctx, slide } = newSlide();
     const rects = [rect, { left: 200, top: 20, width: 100, height: 50 }];
 
     const shapes = addTextBoxes(slide as never, rects, ["Uno", "Dos"], { fontSize: 20, bold: true, fontColor: "#112233" });
@@ -24,51 +29,51 @@ describe("addTextBoxes", () => {
         { path: "font.size", value: 20 },
         { path: "font.bold", value: true },
         { path: "font.color", value: "#112233" },
-        { path: "textFrame.verticalAlignment", value: "Middle" },
         { path: "textFrame.wordWrap", value: true },
+        { path: "textFrame.autoSizeSetting", value: "AutoSizeNone" },
+        { path: "textFrame.verticalAlignment", value: "Middle" },
       ]);
     }
   });
 
   it("clears the fill and hides the line when style.fill/style.line are null", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { slide } = newSlide();
 
     const [shape] = addTextBoxes(slide as never, [rect], ["Hola"], { fill: null, line: null });
 
     const paths = (shape as unknown as MockShape).formatWrites.map((w) => w.path);
-    expect(paths).toEqual(["fill.clear", "lineFormat.visible", "textFrame.verticalAlignment", "textFrame.wordWrap"]);
+    expect(paths).toEqual(["fill.clear", "lineFormat.visible", "textFrame.wordWrap", "textFrame.autoSizeSetting", "textFrame.verticalAlignment"]);
   });
 
-  it("sets a solid fill color and line color when given as hex strings", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+  it("sets a solid fill color, and forces the line visible before setting its color", () => {
+    const { slide } = newSlide();
 
     const [shape] = addTextBoxes(slide as never, [rect], ["Hola"], { fill: "#FF0000", line: "#00FF00" });
 
     expect((shape as unknown as MockShape).formatWrites).toEqual([
       { path: "fill.setSolidColor", value: "#FF0000" },
+      { path: "lineFormat.visible", value: true },
       { path: "lineFormat.color", value: "#00FF00" },
-      { path: "textFrame.verticalAlignment", value: "Middle" },
       { path: "textFrame.wordWrap", value: true },
+      { path: "textFrame.autoSizeSetting", value: "AutoSizeNone" },
+      { path: "textFrame.verticalAlignment", value: "Middle" },
     ]);
   });
 
-  it("writes only the verticalAlignment/wordWrap defaults without a style", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+  it("writes only the wordWrap/autoSizeSetting/verticalAlignment defaults without a style", () => {
+    const { slide } = newSlide();
 
     const [shape] = addTextBoxes(slide as never, [rect], ["Hola"]);
 
     expect((shape as unknown as MockShape).formatWrites).toEqual([
-      { path: "textFrame.verticalAlignment", value: "Middle" },
       { path: "textFrame.wordWrap", value: true },
+      { path: "textFrame.autoSizeSetting", value: "AutoSizeNone" },
+      { path: "textFrame.verticalAlignment", value: "Middle" },
     ]);
   });
 
   it("falls back to an empty string when a rect has no matching text", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { ctx, slide } = newSlide();
 
     addTextBoxes(slide as never, [rect], []);
 
@@ -78,21 +83,20 @@ describe("addTextBoxes", () => {
 
 describe("addGeometric", () => {
   it("adds a geometric shape of the given type, recording the call", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { ctx, slide } = newSlide();
 
     const shape = addGeometric(slide as never, "Chevron", rect);
 
     expect(ctx.calls[0]).toEqual({ id: shape.id, path: "addGeometricShape", value: { type: "Chevron", ...rect } });
     expect((shape as unknown as MockShape).formatWrites).toEqual([
-      { path: "textFrame.verticalAlignment", value: "Middle" },
       { path: "textFrame.wordWrap", value: true },
+      { path: "textFrame.autoSizeSetting", value: "AutoSizeNone" },
+      { path: "textFrame.verticalAlignment", value: "Middle" },
     ]);
   });
 
   it("writes text, font, fill/line and centers the paragraph when style.centered", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { slide } = newSlide();
 
     const shape = addGeometric(slide as never, "Ellipse", rect, {
       text: "1",
@@ -112,26 +116,62 @@ describe("addGeometric", () => {
       { path: "font.bold", value: true },
       { path: "font.color", value: "#FFFFFF" },
       { path: "paragraphFormat.horizontalAlignment", value: "Center" },
-      { path: "textFrame.verticalAlignment", value: "Middle" },
       { path: "textFrame.wordWrap", value: true },
+      { path: "textFrame.autoSizeSetting", value: "AutoSizeNone" },
+      { path: "textFrame.verticalAlignment", value: "Middle" },
+    ]);
+  });
+
+  it("forces the line visible before setting its color, same as addTextBoxes", () => {
+    const { slide } = newSlide();
+
+    const shape = addGeometric(slide as never, "Rectangle", rect, { line: "#00FF00" });
+
+    expect((shape as unknown as MockShape).formatWrites).toEqual([
+      { path: "lineFormat.visible", value: true },
+      { path: "lineFormat.color", value: "#00FF00" },
+      { path: "textFrame.wordWrap", value: true },
+      { path: "textFrame.autoSizeSetting", value: "AutoSizeNone" },
+      { path: "textFrame.verticalAlignment", value: "Middle" },
     ]);
   });
 
   it("does not center the paragraph without style.centered", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { slide } = newSlide();
 
     const shape = addGeometric(slide as never, "Rectangle", rect, { text: "A" });
 
     const paths = (shape as unknown as MockShape).formatWrites.map((w) => w.path);
     expect(paths).not.toContain("paragraphFormat.horizontalAlignment");
   });
+
+  it("skips font.color when fontColor is an empty string", () => {
+    const { slide } = newSlide();
+
+    const shape = addGeometric(slide as never, "Rectangle", rect, { fontColor: "" });
+
+    const paths = (shape as unknown as MockShape).formatWrites.map((w) => w.path);
+    expect(paths).not.toContain("font.color");
+  });
+});
+
+describe("applyTextDefaults (autoSizeSetting)", () => {
+  it("sets autoSizeSetting to AutoSizeNone for both addTextBoxes and addGeometric with text, so columns do not shrink", () => {
+    const { slide } = newSlide();
+
+    const [textBox] = addTextBoxes(slide as never, [rect], ["Hola"]);
+    const geometric = addGeometric(slide as never, "Rectangle", rect, { text: "A" });
+
+    for (const shape of [textBox!, geometric]) {
+      const write = (shape as unknown as MockShape).formatWrites.find((w) => w.path === "textFrame.autoSizeSetting");
+      expect(write).toEqual({ path: "textFrame.autoSizeSetting", value: "AutoSizeNone" });
+    }
+  });
 });
 
 describe("addLine", () => {
   it("adds a line of the given kind, recording the call, without touching any style", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { ctx, slide } = newSlide();
 
     const shape = addLine(slide as never, "Straight", rect);
 
@@ -140,8 +180,7 @@ describe("addLine", () => {
   });
 
   it("supports the Elbow kind too", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { ctx, slide } = newSlide();
 
     const shape = addLine(slide as never, "Elbow", rect);
 
@@ -150,20 +189,17 @@ describe("addLine", () => {
 });
 
 describe("selectCreated", () => {
-  it("selects the given shapes by id", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
-    const a = new MockShape({ id: "a", left: 0, top: 0, width: 1, height: 1 });
-    const b = new MockShape({ id: "b", left: 0, top: 0, width: 1, height: 1 });
+  it("selects the shapes created by addTextBoxes, by id (as the caller would after loading id and syncing)", () => {
+    const { ctx, slide } = newSlide();
+    const shapes = addTextBoxes(slide as never, [rect, rect], ["Uno", "Dos"]);
 
-    selectCreated(slide as never, [a, b] as never);
+    selectCreated(slide as never, shapes);
 
-    expect(ctx.selectedShapeIds).toEqual(["a", "b"]);
+    expect(ctx.selectedShapeIds).toEqual(shapes.map((s) => s.id));
   });
 
   it("selects an empty list without throwing", () => {
-    const ctx = new MockContext([], "", { slides: [{ id: "s1" }] });
-    const slide = ctx.slidesList[0]!;
+    const { ctx, slide } = newSlide();
 
     selectCreated(slide as never, []);
 

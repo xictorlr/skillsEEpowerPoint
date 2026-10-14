@@ -12,7 +12,8 @@ export interface ShapeStyle {
   line?: string | null;
   fontSize?: number;
   bold?: boolean;
-  /** Color de fuente (hex); `null`/ausente deja el color por defecto del tema. */
+  /** Color de fuente (hex); vacío, `null` o ausente deja el color por defecto del tema (no se
+   *  escribe `font.color`). */
   fontColor?: string | null;
   /** Texto de la forma (solo tiene efecto en `addGeometric`: `addTextBoxes` ya recibe sus textos
    *  aparte, uno por rect). */
@@ -26,7 +27,11 @@ function rectOptions(rect: Rect): { left: number; top: number; width: number; he
   return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
 }
 
-/** Escribe `fill`/`line` de `style` sobre `shape`, si vienen provistos. */
+/**
+ * Escribe `fill`/`line` de `style` sobre `shape`, si vienen provistos. Un color de línea en hex
+ * primero fuerza `lineFormat.visible = true` (las formas de texto nacen con el contorno oculto) y
+ * luego escribe el color, en ese orden.
+ */
 function applyFillAndLine(shape: PowerPoint.Shape, style?: ShapeStyle): void {
   if (!style) return;
   if (style.fill !== undefined) {
@@ -34,8 +39,12 @@ function applyFillAndLine(shape: PowerPoint.Shape, style?: ShapeStyle): void {
     else shape.fill.setSolidColor(style.fill);
   }
   if (style.line !== undefined) {
-    if (style.line === null) shape.lineFormat.visible = false;
-    else shape.lineFormat.color = style.line;
+    if (style.line === null) {
+      shape.lineFormat.visible = false;
+    } else {
+      shape.lineFormat.visible = true;
+      shape.lineFormat.color = style.line;
+    }
   }
 }
 
@@ -48,12 +57,17 @@ function applyFont(shape: PowerPoint.Shape, style?: ShapeStyle): void {
   if (style.fontColor) font.color = style.fontColor;
 }
 
-/** Deja el marco de texto listo para una etiqueta corta: centrado verticalmente y con ajuste de
- *  línea; centra el párrafo si `style.centered`. */
+/**
+ * Deja el marco de texto listo para una etiqueta corta: ajuste de línea, sin autoajuste de tamaño
+ * (`AutoSizeNone`, igual que `addTextBox` en `deck.ts`: si no, el texto puede encogerse a una sola
+ * línea cuando el cuadro es estrecho, como una columna) y centrado verticalmente; centra el párrafo
+ * si `style.centered`.
+ */
 function applyTextDefaults(shape: PowerPoint.Shape, style?: ShapeStyle): void {
   if (style?.centered) shape.textFrame.textRange.paragraphFormat.horizontalAlignment = "Center";
-  shape.textFrame.verticalAlignment = "Middle";
   shape.textFrame.wordWrap = true;
+  shape.textFrame.autoSizeSetting = "AutoSizeNone";
+  shape.textFrame.verticalAlignment = "Middle";
 }
 
 /**

@@ -51,6 +51,10 @@ export interface MockShapeInit {
     bottomMargin: number;
     /** Valor de `textFrame.hasText` (API 1.4). Por defecto `true`. */
     hasText: boolean;
+    /** Valor inicial de `paragraphFormat.bulletFormat.visible`. Por defecto `true`. */
+    bulletsVisible: boolean;
+    /** Valor inicial de `paragraphFormat.indentLevel`. Por defecto `0`. */
+    indentLevel: number;
   }>;
 }
 
@@ -93,6 +97,8 @@ const DEFAULT_TEXT_PROPS = {
   rightMargin: 7.2,
   topMargin: 3.6,
   bottomMargin: 3.6,
+  bulletsVisible: true,
+  indentLevel: 0,
 };
 
 export class MockShape {
@@ -255,17 +261,42 @@ export class MockShape {
       }
       const textInit = { ...DEFAULT_TEXT_PROPS, ...init.textProps };
 
+      const bulletFormat = {
+        load: (props: string) => {
+          this.loads.push({ path: "bulletFormat", props });
+        },
+      } as { visible: boolean; load: (props: string) => void };
+      let bulletsVisible = textInit.bulletsVisible;
+      Object.defineProperty(bulletFormat, "visible", {
+        get: () => bulletsVisible,
+        set: (v: boolean) => {
+          bulletsVisible = v;
+          this.recordFormatWrite("bulletFormat.visible", v);
+        },
+        enumerable: true,
+      });
+
       const paragraphFormat = {
+        bulletFormat,
         load: (props: string) => {
           this.loads.push({ path: "paragraphFormat", props });
         },
-      } as { horizontalAlignment: string | null; load: (props: string) => void };
+      } as { horizontalAlignment: string | null; indentLevel: number; bulletFormat: typeof bulletFormat; load: (props: string) => void };
       let horizontalAlignment: string | null = textInit.horizontalAlignment;
       Object.defineProperty(paragraphFormat, "horizontalAlignment", {
         get: () => horizontalAlignment,
         set: (v: string | null) => {
           horizontalAlignment = v;
           this.recordFormatWrite("paragraphFormat.horizontalAlignment", v);
+        },
+        enumerable: true,
+      });
+      let indentLevel = textInit.indentLevel;
+      Object.defineProperty(paragraphFormat, "indentLevel", {
+        get: () => indentLevel,
+        set: (v: number) => {
+          indentLevel = v;
+          this.recordFormatWrite("paragraphFormat.indentLevel", v);
         },
         enumerable: true,
       });
@@ -406,6 +437,27 @@ export class MockSlide {
         shape.ctx = this.ctx;
         this.shapesList.push(shape);
         this.ctx.calls.push({ id: shape.id, path: "addTextBox", value: { text, ...opts } });
+        return shape;
+      },
+      /** `shapes.addGeometricShape(type, opts)`: crea un `MockShape` de tipo "GeometricShape", lo
+       *  añade a la diapositiva y registra `{ id, path: "addGeometricShape", value: { type, ...opts } }`
+       *  en `ctx.calls`. */
+      addGeometricShape: (type: string, opts: { left: number; top: number; width: number; height: number }): MockShape => {
+        this.ctx.addedShapes += 1;
+        const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type: "GeometricShape", ...opts });
+        shape.ctx = this.ctx;
+        this.shapesList.push(shape);
+        this.ctx.calls.push({ id: shape.id, path: "addGeometricShape", value: { type, ...opts } });
+        return shape;
+      },
+      /** `shapes.addLine(kind, opts)`: crea un `MockShape` de tipo "Line", lo añade a la
+       *  diapositiva y registra `{ id, path: "addLine", value: { kind, ...opts } }` en `ctx.calls`. */
+      addLine: (kind: string, opts: { left: number; top: number; width: number; height: number }): MockShape => {
+        this.ctx.addedShapes += 1;
+        const shape = new MockShape({ id: `new-shape-${this.ctx.addedShapes}`, type: "Line", ...opts });
+        shape.ctx = this.ctx;
+        this.shapesList.push(shape);
+        this.ctx.calls.push({ id: shape.id, path: "addLine", value: { kind, ...opts } });
         return shape;
       },
     };

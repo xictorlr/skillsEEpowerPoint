@@ -31,12 +31,15 @@ describe("readSelection", () => {
     expect(selection.slide).toEqual({ width: 540, height: 540 }); // PNG 1x1 → aspecto 1:1
   });
 
-  it("falls back to 960x540 when the slide image cannot be read", async () => {
+  it("falls back to 960x540 without caching it, after trying to render the slide", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const cache = new Map();
     const ctx = new MockContext([], "not-base64-png");
-    const { selection } = await readSelection(ctx as never, { slideSizeCache: new Map() });
+    const { selection } = await readSelection(ctx as never, { slideSizeCache: cache });
     expect(selection.shapes).toEqual([]);
     expect(selection.slide).toEqual({ width: 960, height: 540 });
+    expect(ctx.imageOptions).toEqual({ height: 540 }); // intentó renderizar antes de caer al fallback
+    expect(cache.size).toBe(0); // el fallback no se cachea: puede ser un fallo transitorio
     warn.mockRestore();
   });
 

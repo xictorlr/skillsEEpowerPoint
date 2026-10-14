@@ -39,4 +39,43 @@ describe("runCommand", () => {
       message: "Esta función requiere una versión más reciente de PowerPoint.",
     });
   });
+
+  it("maps a thrown GeneralException error code to the Spanish message", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<number>) => fn({}) });
+
+    const result = await runCommand("cmd", async () => {
+      throw { code: "GeneralException", message: "m" };
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "PowerPoint rechazó la operación. Puede que alguna forma esté bloqueada o no admita el cambio.",
+    });
+  });
+
+  it("maps a thrown ItemNotFound error code to the Spanish message", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<number>) => fn({}) });
+
+    const result = await runCommand("cmd", async () => {
+      throw { code: "ItemNotFound", message: "m" };
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "No se encontró la forma o diapositiva seleccionada.",
+    });
+  });
+
+  it("falls back to 'code: message' for an unrecognized error code", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("PowerPoint", { run: (fn: (context: unknown) => Promise<number>) => fn({}) });
+
+    const result = await runCommand("cmd", async () => {
+      throw { code: "Foo", message: "bar" };
+    });
+
+    expect(result).toEqual({ ok: false, message: "Foo: bar" });
+  });
 });

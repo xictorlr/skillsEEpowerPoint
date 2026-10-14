@@ -204,9 +204,9 @@ function lineOffsets(lines: Line[]): number[] {
   return offsets;
 }
 
-/** `true` si, tras recortar espacios/tabuladores/espacios duros de los extremos, el párrafo queda vacío (como lo elimina `cleanText`). */
+/** `true` si el párrafo consiste solo en espacios ordinarios (cero o más); es la misma noción de "vacío" que usa `cleanText` (que no recorta tabuladores ni espacios duros, así que un párrafo con solo uno de esos NO es vacío). */
 function isEmptyParagraph(text: string): boolean {
-  return text.replace(/^[ \t ]+/, "").replace(/[ \t ]+$/, "").length === 0;
+  return /^ *$/.test(text);
 }
 
 /**

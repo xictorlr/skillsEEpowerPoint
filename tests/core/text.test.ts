@@ -113,6 +113,13 @@ describe("computeTextEdits", () => {
       { start: 0, length: 6, text: "a\vb\rc" },
     ]);
   });
+  it("a tab-only or NBSP-only paragraph is NOT empty (matches cleanText), so removal still yields individual edits, not a whole-text replace", () => {
+    expect(computeTextEdits("\t\r\rb", cleanText("\t\r\rb"))).toEqual([{ start: 2, length: 1, text: "" }]);
+    expect(computeTextEdits("  \r\rb", cleanText("  \r\rb"))).toEqual([
+      { start: 3, length: 1, text: "" },
+      { start: 0, length: 3, text: "" },
+    ]);
+  });
 });
 
 describe("computeTextEdits + applyEdits round-trip", () => {
@@ -131,6 +138,8 @@ describe("computeTextEdits + applyEdits round-trip", () => {
     ["\ra", "a"],
     ["uno\r\rdos tres", "uno\rDOS tres"],
     ["a\r\rb\nc", "a\vb\rc"],
+    ["\t\r\rb", cleanText("\t\r\rb")],
+    ["  \r\rb", cleanText("  \r\rb")],
   ];
   it.each(cases)("applying computeTextEdits(%j, %j) to the old text reproduces the new text", (oldText, newText) => {
     expect(applyEdits(oldText, computeTextEdits(oldText, newText))).toBe(newText);

@@ -22,7 +22,7 @@ Elige la sección de tu sistema operativo.
 
 ### Opción con Terminal (más rápida)
 
-1. Abre la app **Terminal** (Lanzador > Terminal, o Spotlight con Cmd+Espacio y escribe "Terminal").
+1. Abre la app **Terminal** (Launchpad > Terminal, o Spotlight con Cmd+Espacio y escribe "Terminal").
 2. Copia y pega este comando completo, y pulsa Intro:
 
    ```

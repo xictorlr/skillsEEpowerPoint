@@ -154,6 +154,8 @@ botones no aparecen.
   longitud no cambia) para conservar negritas y viñetas; cuando la longitud de una línea cambia o se
   eliminan párrafos vacíos, esa línea o el cuadro completo pierden formatos mixtos.
 - "Tamaño ±" omite cuadros con tamaños de fuente mixtos.
+- "Aumentar/Reducir sangría" omite cuadros cuyos párrafos tienen niveles de sangría distintos (la API devuelve
+  `null`); los niveles van de 0 a 8 según la API de PowerPoint.
 - Las siglas pierden las mayúsculas con Tipo oración / Tipo Título.
 - Office.js no expone las notas del orador ni las animaciones: Check no puede detectarlas ni
   limpiarlas, solo actúa sobre las formas de la diapositiva.
@@ -252,9 +254,9 @@ Tras instalar el add-in, en una presentación de prueba:
     aparece en la esquina superior derecha con ese texto y color. "Insertar cuadro de texto" crea
     un cuadro "Texto" centrado y seleccionado. En Text, selecciona dos cuadros, uno en negrita y
     otro no, y pulsa "Negrita (conmutar)": los dos quedan en negrita; púlsalo otra vez y ninguno lo
-    está. "Tamaño título (24 pt)" pone el texto a 24 pt; "Viñetas (conmutar)" quita las viñetas de
-    un cuadro con lista y las pone en uno sin ellas. En PowerPoint sin API 1.10, los botones de
-    sangría no aparecen.
+    está. "Tamaño título (24 pt)" pone el texto a 24 pt. "Viñetas (conmutar)": selecciona solo un
+    cuadro con lista y púlsalo (quita las viñetas); selecciona solo un cuadro sin viñetas y púlsalo
+    (las pone). En PowerPoint sin API 1.10, los botones de sangría no aparecen.
 
 ## Créditos
 

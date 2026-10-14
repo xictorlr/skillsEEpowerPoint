@@ -39,6 +39,18 @@ selector de **Diapositiva**. En modo Auto se detecta la proporción de la diapos
 si tu presentación usa un alto distinto, como el 16:9 clásico de 720×405, elígelo explícitamente para que
 "centrar en la diapositiva" quede exacto.
 
+## Comandos (Fase 2)
+
+**Format:** copiar formato (de la primera forma seleccionada) y pegar formato en el resto, ya sea todo junto
+(según las casillas elegidas) o solo relleno / línea / fuente / tamaño. Las casillas "Relleno", "Línea",
+"Fuente" y "Tamaño" controlan qué partes copia "Pegar formato" y se recuerdan entre sesiones.
+
+**Color:** destino del color (relleno, línea o texto), paleta neutra de 16 colores, hasta 8 colores recientes
+y un selector de color personalizado; además "Sin relleno", "Sin línea" y transparencia ±10 %. El destino
+elegido y los colores recientes también se recuerdan entre sesiones.
+
+Nota: la paleta es fija porque Office.js no expone los colores del tema de la presentación.
+
 ## Limitaciones conocidas
 
 - Office.js no expone el tamaño de la diapositiva: en Auto se deduce de la proporción asumiendo 540 pt de alto,
@@ -71,4 +83,5 @@ declarativos), `src/taskpane` (UI). Diseño completo en `docs/superpowers/specs/
 
 ## Hoja de ruta
 
-Fase 2 Format + Color · Fase 3 Text · Fase 4 Navigation & Expert Tools · Fase 5 Check + Presentation · Fase 6 Wizards.
+Fase 2 Format + Color (hecho) · Fase 3 Text · Fase 4 Navigation & Expert Tools · Fase 5 Check + Presentation ·
+Fase 6 Wizards.

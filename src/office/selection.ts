@@ -39,17 +39,40 @@ export interface SelectionRead {
 const SHAPE_PROPS = "items/id,items/name,items/type,items/left,items/top,items/width,items/height,items/rotation,items/zOrderPosition,items/level";
 
 /**
+ * Fases 2 y 3 de la lectura (ver `readSelection`): fill/lineFormat/fuente -y, si `withText`, el
+ * texto (ver `loadTextProps`)- según el tipo de cada forma; para los marcadores de posición,
+ * según lo que de verdad contienen una vez conocido `containedType` (fase 3). Devuelve las
+ * capacidades de formato de cada forma, con las que se puede filtrar/mapear después.
+ *
+ * Nota: pedir solo `withText` (sin `withFormat`) igualmente encola fill/lineFormat/fuente de cada
+ * forma -son prerrequisito para decidir qué formas tienen marco de texto- pero no paga syncs
+ * extra: fill/línea/fuente y texto comparten exactamente las mismas fases 2/3.
+ */
+async function loadDetails(context: PowerPoint.RequestContext, items: PowerPoint.Shape[], withText: boolean): Promise<Map<string, FormatCaps>> {
+  const placeholders = loadFormatProps(items);
+  if (withText) {
+    // `containedType` de los marcadores de posición aún no se cargó (se encola arriba, en
+    // `loadFormatProps`): su capacidad de texto se decide en la fase 3. Para el resto, el tipo ya
+    // es suficiente y se calcula sin tocar `placeholderFormat`.
+    const nonPlaceholders = items.filter((s) => String(s.type) !== "Placeholder");
+    loadTextProps(nonPlaceholders, buildFormatCaps(nonPlaceholders));
+  }
+  await context.sync();
+  if (placeholders.length > 0) {
+    loadPlaceholderFormats(placeholders);
+    if (withText) loadTextProps(placeholders, buildFormatCaps(placeholders));
+    await context.sync();
+  }
+  return buildFormatCaps(items);
+}
+
+/**
  * Carga las formas seleccionadas y, si se pide, su formato y el tamaño de diapositiva.
  *
  * Sincronización:
  * - Sync 1: siempre. Geometría + tipo de cada forma.
- * - Sync 2: solo si `withFormat` o `withText`. Carga fill/lineFormat/fuente (y, si `withText`, el
- *   texto: ver `loadTextProps`) según el tipo de cada forma; para los marcadores de posición carga
- *   únicamente `placeholderFormat.containedType` (su fill/línea/fuente/texto dependen de lo que
- *   contienen, que todavía no se conoce).
- * - Sync 3: solo si `withFormat` o `withText`, y hubo al menos un marcador de posición. Con
- *   `containedType` ya conocido, carga fill/línea/fuente (y texto) de cada uno según lo que de
- *   verdad contiene.
+ * - Sync 2 y 3 (la 3 solo si hubo marcadores de posición): solo si `withFormat` o `withText`. Ver
+ *   `loadDetails`.
  * - `getSlideSize` puede hacer un sync adicional la primera vez, salvo que `withSlideSize` sea false
  *   o se pase `slideSizeOverride`.
  */
@@ -59,26 +82,9 @@ export async function readSelection(context: PowerPoint.RequestContext, deps: Re
   await context.sync();
 
   // `withText` necesita las mismas capacidades (`caps.font`) que `withFormat`, cargadas en la misma
-  // fase que las fuentes, para que el conteo de syncs no cambie.
+  // fase que las fuentes, para que el conteo de syncs no cambie (ver `loadDetails`).
   const needFormat = deps.withFormat || deps.withText;
-  let caps = new Map<string, FormatCaps>();
-  if (needFormat) {
-    const placeholders = loadFormatProps(collection.items);
-    if (deps.withText) {
-      // `containedType` de los marcadores de posición aún no se cargó (se encola arriba, en
-      // `loadFormatProps`): su capacidad de texto se decide en la fase 3. Para el resto, el tipo ya
-      // es suficiente y se calcula sin tocar `placeholderFormat`.
-      const nonPlaceholders = collection.items.filter((s) => String(s.type) !== "Placeholder");
-      loadTextProps(nonPlaceholders, buildFormatCaps(nonPlaceholders));
-    }
-    await context.sync();
-    if (placeholders.length > 0) {
-      loadPlaceholderFormats(placeholders);
-      if (deps.withText) loadTextProps(placeholders, buildFormatCaps(placeholders));
-      await context.sync();
-    }
-    caps = buildFormatCaps(collection.items);
-  }
+  const caps = needFormat ? await loadDetails(context, collection.items, deps.withText ?? false) : new Map<string, FormatCaps>();
 
   const proxies = new Map<string, PowerPoint.Shape>();
   const shapes: ShapeModel[] = collection.items.map((s) => {

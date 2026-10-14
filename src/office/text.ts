@@ -34,10 +34,15 @@ export function toTextShape(shape: PowerPoint.Shape): TextShape {
 /** Escribe un parche de texto. No hace sync. */
 export function applyTextPatch(shape: PowerPoint.Shape, p: TextPatch): void {
   const tf = shape.textFrame;
-  if (p.text !== undefined) tf.textRange.text = p.text;
+  // Las ediciones vienen ordenadas de la última a la primera (`start` descendente), para que
+  // escribir un sub-rango no desplace los índices de las ediciones aún pendientes. El texto se
+  // escribe antes que el tamaño de fuente para que este último aplique sobre el texto final.
+  for (const e of p.edits ?? []) tf.textRange.getSubstring(e.start, e.length).text = e.text;
   if (p.fontSize !== undefined) tf.textRange.font.size = p.fontSize;
   if (p.horizontalAlignment !== undefined) tf.textRange.paragraphFormat.horizontalAlignment = p.horizontalAlignment as PowerPoint.ParagraphHorizontalAlignment;
   if (p.verticalAlignment !== undefined) tf.verticalAlignment = p.verticalAlignment as PowerPoint.TextVerticalAlignment;
+  // autoSize/wordWrap se recalculan en el layout de PowerPoint tras la escritura: no importa su
+  // orden relativo al resto de campos dentro del mismo parche.
   if (p.autoSize !== undefined) tf.autoSizeSetting = p.autoSize as PowerPoint.ShapeAutoSize;
   if (p.wordWrap !== undefined) tf.wordWrap = p.wordWrap;
   if (p.margins) {

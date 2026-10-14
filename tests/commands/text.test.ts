@@ -35,7 +35,12 @@ describe("text commands", () => {
     const r = await executeCommand(findCommand("case-upper")!, OPTS);
 
     expect(r).toEqual({ ok: true, changed: 1 });
-    expect(a.formatWrites).toContainEqual({ path: "textRange.text", value: "HOLA MUNDO" });
+    // "hola mundo" -> "HOLA MUNDO": dos ediciones de palabra, en orden descendente por start
+    // ("MUNDO" 5..10 antes que "HOLA" 0..4) para no desplazar el offset pendiente.
+    expect(a.formatWrites).toEqual([
+      { path: "textRange.substring", value: { start: 5, length: 5, text: "MUNDO" } },
+      { path: "textRange.substring", value: { start: 0, length: 4, text: "HOLA" } },
+    ]);
     expect(ctx.syncCount).toBe(3); // lectura selección, lectura texto, escritura
   });
 

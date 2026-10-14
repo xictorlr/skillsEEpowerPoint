@@ -105,6 +105,8 @@ export class MockShape {
   lineLoaded = false;
   textFrameLoaded = false;
   textRangeLoaded = false;
+  /** Cada `load(props)` llamado sobre textFrame/textRange/paragraphFormat/font, con su ruta y props. */
+  loads: Array<{ path: string; props: string }> = [];
   supportsFormat: boolean;
   /** Referencia al contexto que la contiene; la fija `MockContext` al construirse. */
   ctx?: MockContext;
@@ -210,8 +212,9 @@ export class MockShape {
     if (init.font !== null) {
       const fontInit = init.font ?? DEFAULT_FONT;
       const font = {
-        load: (_props: string) => {
+        load: (props: string) => {
           this.fontLoaded = true;
+          this.loads.push({ path: "font", props });
         },
       } as MockFont;
       for (const key of ["name", "size", "color", "bold", "italic", "underline"] as const) {
@@ -228,8 +231,8 @@ export class MockShape {
       const textInit = { ...DEFAULT_TEXT_PROPS, ...init.textProps };
 
       const paragraphFormat = {
-        load: (_props: string) => {
-          /* no-op: el valor ya está disponible en el mock */
+        load: (props: string) => {
+          this.loads.push({ path: "paragraphFormat", props });
         },
       } as { horizontalAlignment: string | null; load: (props: string) => void };
       let horizontalAlignment: string | null = textInit.horizontalAlignment;
@@ -246,10 +249,29 @@ export class MockShape {
       const textRange = {
         font,
         paragraphFormat,
-        load: (_props: string) => {
+        load: (props: string) => {
           this.textRangeLoaded = true;
+          this.loads.push({ path: "textRange", props });
         },
-      } as { text: string; font: MockFont; paragraphFormat: typeof paragraphFormat; load: (props: string) => void };
+        getSubstring: (start: number, length: number) => {
+          const substring = {} as { text: string };
+          Object.defineProperty(substring, "text", {
+            get: () => textValue.slice(start, start + length),
+            set: (v: string) => {
+              textValue = textValue.slice(0, start) + v + textValue.slice(start + length);
+              this.formatWrites.push({ path: "textRange.substring", value: { start, length, text: v } });
+            },
+            enumerable: true,
+          });
+          return substring;
+        },
+      } as {
+        text: string;
+        font: MockFont;
+        paragraphFormat: typeof paragraphFormat;
+        load: (props: string) => void;
+        getSubstring: (start: number, length: number) => { text: string };
+      };
       Object.defineProperty(textRange, "text", {
         get: () => textValue,
         set: (v: string) => {
@@ -261,8 +283,9 @@ export class MockShape {
 
       const textFrame = {
         textRange,
-        load: (_props: string) => {
+        load: (props: string) => {
           this.textFrameLoaded = true;
+          this.loads.push({ path: "textFrame", props });
         },
       } as Record<string, unknown> & { textRange: typeof textRange; load: (props: string) => void };
       for (const key of ["verticalAlignment", "autoSizeSetting", "wordWrap", "leftMargin", "rightMargin", "topMargin", "bottomMargin"] as const) {

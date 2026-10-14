@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { readSelection } from "../../src/office/selection";
+import { PARAGRAPH_PROPS, TEXT_FRAME_PROPS, TEXT_RANGE_PROPS } from "../../src/office/text";
 import { MockContext, MockShape } from "./mockPowerPoint";
 
 const PNG_1x1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -163,6 +164,19 @@ describe("readSelection", () => {
         autoSize: "AutoSizeNone", wordWrap: true, margins: { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } },
     ]);
     expect(ctx.syncCount).toBe(2);
+    // Verifica qué se pidió exactamente a cada nivel (textFrame/textRange/paragraphFormat).
+    expect(box.loads).toContainEqual({ path: "textFrame", props: TEXT_FRAME_PROPS });
+    expect(box.loads).toContainEqual({ path: "textRange", props: TEXT_RANGE_PROPS });
+    expect(box.loads).toContainEqual({ path: "paragraphFormat", props: PARAGRAPH_PROPS });
+  });
+
+  it("excludes a placeholder containing an image from texts (no text frame)", async () => {
+    const ph = new MockShape({ id: "ph", type: "Placeholder", left: 0, top: 0, width: 10, height: 10, containedType: "Image" });
+    const ctx = new MockContext([ph], "bad-png");
+    const { texts } = await readSelection(ctx as never, { slideSizeCache: new Map(), withText: true, withSlideSize: false });
+    expect(ctx.syncCount).toBe(3);
+    expect(texts).toEqual([]);
+    expect(ph.textFrameLoaded).toBe(false);
   });
 
   it("does a third sync for a placeholder with no decided content yet, loading its text too", async () => {

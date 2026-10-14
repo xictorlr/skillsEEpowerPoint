@@ -35,7 +35,8 @@ estirar hasta el borde izquierdo / derecho / superior / inferior de la referenci
 La **referencia** es siempre la primera forma que seleccionaste. Cada comando es un único paso de deshacer.
 
 El panel también incluye una sección **Ajustes** con las columnas y el espaciado (gap) de la matriz y un
-selector de **Diapositiva**. En modo Auto se detecta la proporción de la diapositiva activa y se asume el alto estándar de 540 pt;
+selector de **Diapositiva**. En modo Auto, con PowerPoint reciente (PowerPointApi 1.10) el tamaño se lee exacto; en versiones anteriores se
+detecta la proporción de la diapositiva activa y se asume el alto estándar de 540 pt;
 si tu presentación usa un alto distinto, como el 16:9 clásico de 720×405, elígelo explícitamente para que
 "centrar en la diapositiva" quede exacto.
 
@@ -71,7 +72,7 @@ vacío, se usa "Forma"), traer al frente / adelante
 / enviar atrás / al fondo, agrupar / desagrupar, e inspector de posición y tamaño (X, Y, Ancho,
 Alto en puntos) que lee y escribe la caja envolvente de la selección en vivo.
 
-Con PowerPoint reciente (PowerPointApi 1.10) el tamaño de diapositiva es exacto (ver Fase 1) y
+Con PowerPoint reciente (PowerPointApi 1.10) el tamaño de diapositiva es exacto (ver Ajustes) y
 en **Color** aparece una fila "Tema" con los 12 colores del tema de la diapositiva activa, que se
 pueden usar igual que la paleta o los recientes.
 
@@ -90,7 +91,7 @@ Limitaciones de Fase 4:
 - Al pegar formato no se copian rellenos degradados, de trama ni de imagen; los valores mixtos (por ejemplo, varias
   fuentes dentro de un mismo texto) se omiten campo a campo; la transparencia solo se ajusta en rellenos sólidos.
 
-- Office.js no expone el tamaño de la diapositiva: en Auto se deduce de la proporción asumiendo 540 pt de alto,
+- Sin PowerPointApi 1.10, Office.js no expone el tamaño de la diapositiva: en Auto se deduce de la proporción asumiendo 540 pt de alto,
   y el valor se guarda mientras el panel esté abierto. Si cambias Diseño > Tamaño de diapositiva, elige el
   tamaño en Ajustes o vuelve a abrir el panel.
 - Las formas rotadas se alinean por su marco sin rotar (igual que expone el API), no por su caja visual.
